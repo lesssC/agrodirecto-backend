@@ -1,5 +1,5 @@
 # Blueprint de Render: crea el servicio web de la API desde el Dockerfile.
-# La base de datos MySQL vive en Aiven (plan gratuito); sus datos se cargan como variables secretas.
+# La base de datos MySQL vive en Azure (servidor flexible B1ms); sus datos se cargan como variables secretas.
 services:
   - type: web
     name: agrodirecto-api
