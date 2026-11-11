@@ -1,8 +1,6 @@
 package pe.agrodirecto.compartido;
 
-import java.text.Normalizer;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 /** Las 25 regiones del Perú (24 departamentos y la Provincia Constitucional del Callao). */
@@ -21,13 +19,7 @@ public final class Regiones {
         if (region == null) {
             return Optional.empty();
         }
-        String clave = clave(region);
-        return TODAS.stream().filter(r -> clave(r).equals(clave)).findFirst();
-    }
-
-    private static String clave(String texto) {
-        return Normalizer.normalize(texto.trim(), Normalizer.Form.NFD)
-                .replaceAll("\\p{M}", "")
-                .toLowerCase(Locale.ROOT);
+        String clave = Texto.normalizar(region);
+        return TODAS.stream().filter(r -> Texto.normalizar(r).equals(clave)).findFirst();
     }
 }

@@ -10,7 +10,7 @@ import jakarta.validation.constraints.NotNull;
 
 public record ZonaRequest(
         @NotBlank String region,
-        @Min(0) @Max(30) int diasTransito,
+        @NotNull @Min(0) @Max(30) Integer diasTransito,
         @NotNull @DecimalMin("0.00") BigDecimal pedidoMinimo,
         @NotNull @DecimalMin("0.00") BigDecimal costoFlete) {
 }

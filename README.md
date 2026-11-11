@@ -97,6 +97,26 @@ curl localhost:8080/api/auth/yo -H 'Authorization: Bearer <token>'
 - Si cambia el DNI de un perfil, su verificación se anula.
 - Un agricultor sin RUC puede facturar a través de su cooperativa (`emiteFactura`, RN-C3).
 
+## Catálogo
+
+| Método | Ruta | Acceso | Descripción |
+|---|---|---|---|
+| GET | `/api/productos?q=&categoria=&region=&atiende=&organico=&productorId=&orden=` | Público | Búsqueda que ignora tildes. `orden`: `precio_asc`, `precio_desc` o `cosecha` |
+| GET | `/api/productos/{id}` | Público | Ficha con presentaciones, precio por kg, precio de referencia del mercado y productor |
+| GET | `/api/categorias`, `/api/precios-referencia` | Público | Catálogos |
+| GET | `/api/gestion/productos?productorId=` | Quien gestiona | Productos propios, incluidos borradores y retirados, con alertas de precio |
+| POST | `/api/gestion/productos` | Quien gestiona | Crea un producto (`publicar: false` lo guarda como borrador) |
+| PUT | `/api/gestion/productos/{id}` | Quien gestiona | Edita el producto y sus presentaciones |
+| PATCH | `/api/gestion/productos/{id}/estado` | Quien gestiona | `ACTIVO`, `BORRADOR` o `RETIRADO` |
+| GET / PUT / DELETE | `/api/favoritos[/{productoId}]` | Con sesión | Productos guardados |
+
+- **Presentaciones (RN-02):** cada producto tiene de 1 a 6 presentaciones (pequeña, intermedia o mayorista), cada una con su precio y stock. Las que se dejan de enviar se desactivan, no se borran, porque los pedidos antiguos las siguen usando.
+- **Precio fijo (RN-A1):** el comprador no puede regatear. El único descuento es por volumen y lo define el agricultor (máximo 30%).
+- **Precio justo (RN-A2):** la ficha muestra el precio por kg junto al precio mayorista y minorista de referencia.
+- **Alerta de precio bajo (RN-A3):** si una presentación queda más de 10% por debajo del precio mayorista, el agricultor recibe una alerta. No impide publicar, pero así decide informado.
+- **Solo agricultores verificados publican (RN-B5):** sin la verificación presencial se pueden guardar borradores, pero no publicar.
+- **Stock con bloqueo optimista:** si dos compradores reservan el mismo stock a la vez, solo uno lo consigue.
+
 ### Cuentas de demostración
 
 Contraseña de todas: `demo1234`.
