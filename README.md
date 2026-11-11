@@ -7,7 +7,8 @@ El plan de trabajo por tareas está en [ROADMAP.md](ROADMAP.md).
 
 ## Tecnologías
 
-- Java 21 y Spring Boot 4.1 (Web MVC, Data JPA, Validation).
+- Java 21 y Spring Boot 4.1 (Web MVC, Data JPA, Validation, Security).
+- JWT firmado con HS256 (Spring Security OAuth2 Resource Server).
 - MySQL 8 y Flyway para versionar el esquema.
 - H2 en modo MySQL solo para las pruebas automáticas.
 - Docker Compose para la base de datos local.
@@ -54,6 +55,28 @@ Al arrancar, Flyway crea las tablas (`db/migration`) y carga los datos de demost
 | `DB_URL` | `jdbc:mysql://localhost:3307/agrodirecto?...` |
 | `DB_USER` / `DB_PASSWORD` | `agrodirecto` / `agrodirecto` |
 | `PORT` | `8080` |
+| `JWT_SECRET` | Clave de desarrollo (cambiar en producción) |
+
+## Autenticación
+
+| Método | Ruta | Acceso | Descripción |
+|---|---|---|---|
+| POST | `/api/auth/registro` | Público | Crea una cuenta de comprador, productor o agente |
+| POST | `/api/auth/login` | Público | Devuelve el JWT y los datos del usuario |
+| GET | `/api/auth/yo` | Con token | Datos de la cuenta de la sesión |
+
+```bash
+curl -X POST localhost:8080/api/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"compras@saborandino.pe","password":"demo1234"}'
+# Usar el token recibido en las demás peticiones:
+curl localhost:8080/api/auth/yo -H 'Authorization: Bearer <token>'
+```
+
+- El JWT dura 12 horas y lleva el id del usuario (`sub`) y su `rol`. Spring Security convierte el rol en `ROLE_<rol>` para autorizar las rutas: por ejemplo, `/api/admin/**` solo admite administradores.
+- Tras 5 intentos fallidos, la cuenta se bloquea 15 minutos (protección contra fuerza bruta).
+- Una cuenta suspendida pierde el acceso de inmediato, aunque su token siga vigente (RN-23).
+- No se permiten dos cuentas con el mismo correo, celular o DNI (RN-23), y nadie puede registrarse como administrador (RN-07).
+- En producción hay que definir la variable `JWT_SECRET`, de al menos 32 caracteres.
 
 ### Cuentas de demostración
 

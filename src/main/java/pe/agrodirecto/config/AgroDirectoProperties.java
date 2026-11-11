@@ -6,7 +6,7 @@ import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Parámetros de negocio configurables en application.properties (prefijo {@code agrodirecto}).
+ * Parámetros de negocio y seguridad configurables en application.properties (prefijo {@code agrodirecto}).
  */
 @ConfigurationProperties(prefix = "agrodirecto")
 public record AgroDirectoProperties(
@@ -18,12 +18,21 @@ public record AgroDirectoProperties(
         int horasLiberacionAutomatica,
         /* RN-A3: porcentaje por debajo del precio mayorista que dispara la alerta al agricultor. */
         BigDecimal alertaPrecioBajoPorcentaje,
-        int horasSesion,
         CuentaNueva cuentaNueva,
+        Seguridad seguridad,
         String secretoWebhookSms,
         List<String> origenesPermitidos) {
 
     /** RN-18: límites para compradores que aún no tienen historial. */
     public record CuentaNueva(int pedidosParaConfianza, BigDecimal montoMaximo, int pedidosAbiertosMaximo) {
+    }
+
+    /**
+     * @param jwtSecreto      clave HMAC de al menos 32 caracteres para firmar los JWT
+     * @param horasToken      vigencia del token de acceso
+     * @param intentosMaximos intentos fallidos antes del bloqueo temporal
+     * @param minutosBloqueo  duración del bloqueo
+     */
+    public record Seguridad(String jwtSecreto, int horasToken, int intentosMaximos, int minutosBloqueo) {
     }
 }

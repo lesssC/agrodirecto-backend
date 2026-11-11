@@ -31,7 +31,12 @@ public class ManejadorErrores {
 
     @ExceptionHandler(AccesoDenegadoException.class)
     ResponseEntity<ErrorRespuesta> accesoDenegado(AccesoDenegadoException e) {
-        return responder(HttpStatus.FORBIDDEN, "RN-07", e.getMessage(), List.of());
+        return responder(HttpStatus.FORBIDDEN, e.getRegla(), e.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(DemasiadosIntentosException.class)
+    ResponseEntity<ErrorRespuesta> demasiadosIntentos(DemasiadosIntentosException e) {
+        return responder(HttpStatus.TOO_MANY_REQUESTS, null, e.getMessage(), List.of());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
