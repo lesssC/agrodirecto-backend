@@ -67,6 +67,7 @@ public class SeguridadConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMINISTRADOR")
                         // El handshake de WebSocket es libre: el JWT se valida en el CONNECT de STOMP.
                         .requestMatchers("/ws", "/ws/**").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(servidor -> servidor

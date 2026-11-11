@@ -1,4 +1,7 @@
-# Base de datos local para desarrollo: docker compose up -d
+# Entorno completo de desarrollo: base de datos + API.
+#   docker compose up -d          → MySQL en el puerto 3307 y la API en http://localhost:8080
+#   docker compose up -d mysql    → solo la base (para correr la API con ./mvnw spring-boot:run)
+#   docker compose up -d --build  → reconstruye la API tras cambiar el código
 services:
   mysql:
     image: mysql:8.4
@@ -13,6 +16,29 @@ services:
       - "3307:3306"
     volumes:
       - agrodirecto-datos:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uagrodirecto", "-pagrodirecto"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: .
+    container_name: agrodirecto-api
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/agrodirecto?serverTimezone=America/Lima&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USER: agrodirecto
+      DB_PASSWORD: agrodirecto
+      # Valores de desarrollo; en producción se definen como secretos del proveedor.
+      JWT_SECRET: clave-de-desarrollo-agrodirecto-cambiar-en-produccion
+      TOTP_CLAVE: clave-de-cifrado-de-desarrollo-agrodirecto
+      DOBLE_FACTOR_DEMO: "true"
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
 
 volumes:
   agrodirecto-datos:

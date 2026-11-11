@@ -11,7 +11,8 @@ El plan de trabajo por tareas está en [ROADMAP.md](ROADMAP.md).
 - JWT firmado con HS256 (Spring Security OAuth2 Resource Server).
 - MySQL 8 y Flyway para versionar el esquema.
 - H2 en modo MySQL solo para las pruebas automáticas.
-- Docker Compose para la base de datos local.
+- Docker y Docker Compose: la base de datos y la API se levantan con un solo comando.
+- Spring Boot Actuator: `/actuator/health` para monitorear la API.
 
 ## Arquitectura: monolito modular
 
@@ -42,14 +43,27 @@ Las dependencias van en un solo sentido, `web → servicio → repositorio → d
 
 ## Ejecución local
 
-Requisitos: JDK 21 y Docker.
+**Opción 1: solo con Docker (no necesitas Java).** Es la opción recomendada para el equipo y para probar el frontend.
 
 ```bash
-docker compose up -d        # MySQL 8.4 en el puerto 3307
-./mvnw spring-boot:run      # API en http://localhost:8080
+docker compose up -d --build   # MySQL (puerto 3307) + API (http://localhost:8080)
+docker compose logs -f api     # ver el arranque
+docker compose down            # detener (los datos se conservan en el volumen)
+```
+
+La primera compilación tarda unos minutos porque descarga las dependencias; las siguientes reutilizan la caché.
+Para saber si la API está lista: `curl localhost:8080/actuator/health` → `{"status":"UP"}`.
+
+**Opción 2: para desarrollar el backend** (requiere JDK 21):
+
+```bash
+docker compose up -d mysql     # solo la base de datos
+./mvnw spring-boot:run         # API en http://localhost:8080
 ```
 
 Al arrancar, Flyway crea las tablas (`db/migration`) y carga los datos de demostración (`db/demo`).
+
+**La imagen Docker** (`Dockerfile`) compila en una etapa con el JDK y ejecuta en otra solo con el JRE, con un usuario sin privilegios y la zona horaria de Lima. Es la misma imagen que se usará en el despliegue.
 
 | Variable | Valor por defecto |
 |---|---|
