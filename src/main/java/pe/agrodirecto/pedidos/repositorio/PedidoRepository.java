@@ -18,6 +18,8 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
 
     long countByCompradorIdAndEstado(Long compradorId, EstadoPedido estado);
 
+    long countByProductorIdAndEstado(Long productorId, EstadoPedido estado);
+
     long countByCompradorIdAndEstadoIn(Long compradorId, Collection<EstadoPedido> estados);
 
     Optional<Pedido> findByCodigo(String codigo);

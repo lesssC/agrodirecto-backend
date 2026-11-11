@@ -53,7 +53,7 @@ public class SeguridadConfig {
                         // Catálogo y directorio de productores son públicos (cualquier visitante puede explorar).
                         .requestMatchers(HttpMethod.GET, "/api/productos/**", "/api/categorias/**",
                                 "/api/productores/**", "/api/precios-referencia/**", "/api/asociaciones/**",
-                                "/api/regiones").permitAll()
+                                "/api/regiones", "/api/reputaciones").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMINISTRADOR")
                         // El handshake de WebSocket es libre: el JWT se valida en el CONNECT de STOMP.
                         .requestMatchers("/ws", "/ws/**").permitAll()

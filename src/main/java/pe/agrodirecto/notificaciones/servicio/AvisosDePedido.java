@@ -60,6 +60,16 @@ public class AvisosDePedido {
                             + " van a tu " + productor.getMetodoCobro().name().replace('_', ' ') + " terminado en "
                             + ultimos3(productor.getNumeroCobro()) + ". Gracias por vender en AgroDirecto.");
             case CANCELADO -> cancelado(evento, pedido, productor);
+            case EN_DISPUTA -> notificaciones.avisarAlProductor(productor, pedido.getId(),
+                    "AgroDirecto: el comprador reportó un problema con el pedido " + codigo
+                            + ". Tu pago sigue asegurado mientras revisamos el caso. Envía tu versión con fotos "
+                            + "desde la web o con tu agente.");
+            case REEMBOLSADO -> {
+                alComprador(pedido, "Revisamos tu reclamo del pedido " + codigo + " y lo resolvimos a tu favor. "
+                        + "Te devolvemos S/ " + pedido.getTotal() + ".");
+                notificaciones.avisarAlProductor(productor, pedido.getId(), "AgroDirecto: el reclamo del pedido "
+                        + codigo + " se resolvió a favor del comprador. Revisa el detalle en la web o con tu agente.");
+            }
             default -> {
                 // PENDIENTE_PAGO: el pedido aún no se pagó; nadie más necesita enterarse.
             }

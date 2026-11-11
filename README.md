@@ -146,6 +146,9 @@ stateDiagram-v2
     EN_PREPARACION --> LISTO_PARA_ENTREGA
     LISTO_PARA_ENTREGA --> ENTREGADO
     ENTREGADO --> COMPLETADO: comprador confirma o pasan 48 h (se libera el pago)
+    ENTREGADO --> EN_DISPUTA: comprador reporta un problema en 24 h (pago congelado)
+    EN_DISPUTA --> COMPLETADO: admin decide a favor del agricultor (se libera el pago)
+    EN_DISPUTA --> REEMBOLSADO: admin decide a favor del comprador (se devuelve el dinero)
 ```
 
 ### Pago retenido (RN-C1, RN-C2)
@@ -228,6 +231,27 @@ Para probar la respuesta por SMS sin un proveedor:
 curl -X POST localhost:8080/api/sms/entrante -H 'X-Webhook-Secreto: cambiar-en-produccion' \
   -H 'Content-Type: application/json' -d '{"telefono":"900000011","mensaje":"1"}'
 ```
+
+## Confianza: reseñas, reputación y disputas
+
+| Método | Ruta | Acceso | Descripción |
+|---|---|---|---|
+| POST | `/api/pedidos/{id}/resena` | Comprador del pedido | Calificación de 1 a 5, solo si el pedido está `COMPLETADO` |
+| GET | `/api/productores/{id}/resenas` · `/reputacion` | Público | Reseñas y reputación del productor |
+| GET | `/api/reputaciones?productorIds=1,2` | Público | Varias reputaciones a la vez (directorio y catálogo) |
+| POST | `/api/pedidos/{id}/disputa` | Comprador del pedido | Reportar un problema dentro de las 24 h desde la entrega |
+| GET | `/api/disputas/{id}` | Comprador o quien gestiona al productor | Detalle de la disputa |
+| POST | `/api/disputas/{id}/descargo` | El agricultor o su agente | Su versión, con evidencia |
+| GET | `/api/admin/disputas?estado=` | Administrador | Bandeja de disputas |
+| POST | `/api/admin/disputas/{id}/resolver` | Administrador | `aFavorDe`: `COMPRADOR` (reembolso) o `PRODUCTOR` (se libera el pago) |
+
+- **Reseñas verificadas (RN-20):** solo califica quien compró y recibió, y una vez por pedido. No hay reseñas falsas porque no existen sin una compra real.
+- **Reputación con hechos (RN-21):** promedio de estrellas, pedidos completados, rechazados y disputas perdidas. Con 3 ventas o más, el nivel es `CONFIABLE` (90% o más de cumplimiento), `REGULAR` (70% o más) o `EN_OBSERVACION`. Un productor con menos ventas aparece como `NUEVO`, para no castigarlo por no tener historial.
+- **Disputas justas (RN-15, RN-22):**
+  - El comprador tiene 24 horas desde la entrega para reclamar. Si el reclamo es por calidad, cantidad o producto distinto, debe adjuntar una foto.
+  - El pago queda **congelado**: no se libera solo ni se devuelve sin revisión.
+  - El agricultor se entera por SMS y puede presentar **su descargo con evidencia**, él mismo o a través de su agente.
+  - La administración decide con la información de ambas partes. No hay reembolsos automáticos que perjudiquen al agricultor.
 
 ## Tiempo real con WebSocket (STOMP)
 

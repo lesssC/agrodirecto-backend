@@ -232,6 +232,48 @@ public class PedidoService {
         throw new AccesoDenegadoException("Este pedido no es tuyo.");
     }
 
+    // ---------- Disputas (las usa el módulo de confianza) ----------
+
+    /**
+     * RN-15 / RN-22: el comprador reporta un problema dentro del plazo de reclamo tras la entrega.
+     * El pago queda retenido: no se libera automáticamente mientras dure la disputa.
+     */
+    @Transactional
+    public Pedido abrirDisputa(Long id, Usuario comprador, String comentario) {
+        Pedido pedido = delComprador(comprador, id);
+        if (pedido.getEstado() != EstadoPedido.ENTREGADO) {
+            throw new ReglaNegocioException("RN-15", "Solo se puede reportar un problema de un pedido entregado.");
+        }
+        LocalDateTime ahora = LocalDateTime.now(reloj);
+        if (pedido.getEntregadoEn().plusHours(propiedades.horasReclamo()).isBefore(ahora)) {
+            throw new ReglaNegocioException("RN-15", "El plazo para reportar problemas es de "
+                    + propiedades.horasReclamo() + " horas desde la entrega y ya venció.");
+        }
+        transicion(pedido, EstadoPedido.EN_DISPUTA, comprador, CanalOperacion.WEB, comentario, ahora);
+        return pedido;
+    }
+
+    /** La administración decide: se libera el pago al agricultor o se devuelve al comprador. */
+    @Transactional
+    public Pedido resolverDisputa(Long id, Usuario administrador, boolean aFavorDelComprador, String resolucion) {
+        Pedido pedido = buscar(id);
+        LocalDateTime ahora = LocalDateTime.now(reloj);
+        if (aFavorDelComprador) {
+            transicion(pedido, EstadoPedido.REEMBOLSADO, administrador, CanalOperacion.WEB, resolucion, ahora);
+            pagoService.revertir(id);
+        } else {
+            transicion(pedido, EstadoPedido.COMPLETADO, administrador, CanalOperacion.WEB, resolucion, ahora);
+            liberarPago(pedido);
+        }
+        return pedido;
+    }
+
+    /** Para que otros módulos validen la relación del usuario con el pedido sin repetir las reglas. */
+    @Transactional(readOnly = true)
+    public Pedido buscarComoComprador(Usuario comprador, Long id) {
+        return delComprador(comprador, id);
+    }
+
     // ---------- Respuesta del agricultor por SMS (RN-B2) ----------
 
     /** El agricultor sin smartphone acepta respondiendo "1" a su SMS. No hay usuario: queda el canal SMS. */

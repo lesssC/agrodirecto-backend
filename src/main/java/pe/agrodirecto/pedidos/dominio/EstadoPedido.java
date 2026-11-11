@@ -19,6 +19,10 @@ public enum EstadoPedido {
     ENTREGADO,
     /** El comprador confirmó que recibió conforme. */
     COMPLETADO,
+    /** RN-22: el comprador reportó un problema; el pago queda congelado hasta que la administración resuelva. */
+    EN_DISPUTA,
+    /** Disputa resuelta a favor del comprador: se le devolvió el dinero. */
+    REEMBOLSADO,
     RECHAZADO,
     CANCELADO;
 
@@ -28,7 +32,8 @@ public enum EstadoPedido {
             ACEPTADO, EnumSet.of(EN_PREPARACION),
             EN_PREPARACION, EnumSet.of(LISTO_PARA_ENTREGA),
             LISTO_PARA_ENTREGA, EnumSet.of(ENTREGADO),
-            ENTREGADO, EnumSet.of(COMPLETADO));
+            ENTREGADO, EnumSet.of(COMPLETADO, EN_DISPUTA),
+            EN_DISPUTA, EnumSet.of(COMPLETADO, REEMBOLSADO));
 
     public boolean puedePasarA(EstadoPedido siguiente) {
         return TRANSICIONES.getOrDefault(this, Set.of()).contains(siguiente);
@@ -44,10 +49,12 @@ public enum EstadoPedido {
      * Así se protege la privacidad y se evita que el trato se cierre fuera de la plataforma.
      */
     public boolean revelaContacto() {
-        return EnumSet.of(ACEPTADO, EN_PREPARACION, LISTO_PARA_ENTREGA, ENTREGADO, COMPLETADO).contains(this);
+        return EnumSet.of(ACEPTADO, EN_PREPARACION, LISTO_PARA_ENTREGA, ENTREGADO, COMPLETADO, EN_DISPUTA, REEMBOLSADO)
+                .contains(this);
     }
 
     public static Set<EstadoPedido> abiertos() {
-        return EnumSet.of(PENDIENTE_PAGO, PENDIENTE, ACEPTADO, EN_PREPARACION, LISTO_PARA_ENTREGA, ENTREGADO);
+        return EnumSet.of(PENDIENTE_PAGO, PENDIENTE, ACEPTADO, EN_PREPARACION, LISTO_PARA_ENTREGA, ENTREGADO,
+                EN_DISPUTA);
     }
 }

@@ -71,7 +71,10 @@ public class PedidoMapper {
                 acciones.add("CANCELAR");
             }
             if (estado == EstadoPedido.ENTREGADO) {
-                acciones.add("CONFIRMAR_RECEPCION");
+                acciones.addAll(List.of("CONFIRMAR_RECEPCION", "REPORTAR_PROBLEMA"));
+            }
+            if (estado == EstadoPedido.COMPLETADO) {
+                acciones.add("CALIFICAR");
             }
             return acciones;
         }
@@ -80,6 +83,7 @@ public class PedidoMapper {
             case ACEPTADO -> acciones.add("EN_PREPARACION");
             case EN_PREPARACION -> acciones.add("LISTO_PARA_ENTREGA");
             case LISTO_PARA_ENTREGA -> acciones.add("ENTREGADO");
+            case EN_DISPUTA -> acciones.add("ENVIAR_DESCARGO");
             default -> {
             }
         }
