@@ -88,7 +88,10 @@ La especificación OpenAPI en JSON está en `/v3/api-docs`.
 
 ## Despliegue
 
-Base de datos en Aiven y API en Render, ambos con plan gratuito: ver [docs/despliegue.md](docs/despliegue.md). El archivo `render.yaml` crea el servicio con un clic.
+Base de datos en Azure (Azure for Students), API en Render y frontend en Cloudflare Workers: ver [docs/despliegue.md](docs/despliegue.md). El archivo `render.yaml` crea el servicio con un clic.
+
+- Aplicación: https://agrodirecto-avance-1.agrodirecto-fullstack.workers.dev
+- API: https://agrodirecto-api.onrender.com (Swagger en `/swagger-ui.html`)
 
 ## Autenticación
 

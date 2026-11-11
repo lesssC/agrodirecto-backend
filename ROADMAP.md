@@ -16,7 +16,7 @@ La columna **Tema** relaciona la tarea con la Unidad 3 del curso.
 | 8 | `feat/confianza` | Reseñas verificadas, reputación del productor y disputas | RN-15, RN-20, RN-21, RN-22 | — | Completada |
 | 9 | `feat/administracion` | Panel de métricas, verificación y suspensión de cuentas, resolución de disputas | RN-17, RN-23 | S24 Autorización | Completada |
 | 10 | `feat/doble-factor-totp` | Segundo factor TOTP (Google Authenticator) para administrador y agente | — | S26 Seguridad en dos pasos | Lista |
-| 11 | `docs/api-despliegue` | Documentación de la API (Swagger), Dockerfile y guía de despliegue (Aiven + Render/Railway) | — | S3 Plataformas de despliegue | Completada |
+| 11 | `docs/api-despliegue` | Documentación de la API (Swagger), Dockerfile y guía de despliegue (Azure MySQL + Render + Cloudflare) | — | S3 Plataformas de despliegue | Completada |
 
 **Avance 2 (backend al 60%)**: tareas 0 a 6.
 **Entrega final**: tareas 7 a 11 e integración con el frontend (repositorio `agrodirecto-project`).
