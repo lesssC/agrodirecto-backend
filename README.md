@@ -403,6 +403,10 @@ Contraseña de todas: `demo1234`.
 ./mvnw test
 ```
 
+## Trabajo en equipo
+
+Cómo clonar, levantar localmente y subir cambios: ver [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Equipo
 
 Desarrollo Full Stack — UTP, sección 45554, 2026.
