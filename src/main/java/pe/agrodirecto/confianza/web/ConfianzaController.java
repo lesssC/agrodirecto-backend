@@ -61,6 +61,11 @@ public class ConfianzaController {
         return disputas.abrir(jwt, id, solicitud);
     }
 
+    @GetMapping("/api/pedidos/{id}/disputa")
+    public DisputaResponse disputaDelPedido(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        return disputas.dePedido(jwt, id);
+    }
+
     @GetMapping("/api/disputas/{id}")
     public DisputaResponse disputa(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         return disputas.detalle(jwt, id);

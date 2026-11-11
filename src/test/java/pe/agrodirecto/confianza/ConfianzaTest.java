@@ -121,6 +121,9 @@ class ConfianzaTest extends PruebaIntegracion {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.descargo", containsString("salieron sanos")));
         getCon(comprador, "/api/disputas/" + disputa).andExpect(jsonPath("$.evidenciaDescargoUrl").exists());
+        Long pedido = jdbc.queryForObject("SELECT pedido_id FROM disputa WHERE id = ?", Long.class, disputa);
+        getCon(productor, "/api/pedidos/" + pedido + "/disputa").andExpect(jsonPath("$.id").value(disputa));
+        getCon(token(COMPRADOR_NUEVO), "/api/pedidos/" + pedido + "/disputa").andExpect(status().isForbidden());
     }
 
     @Test

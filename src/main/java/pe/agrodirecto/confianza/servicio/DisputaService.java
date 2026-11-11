@@ -80,6 +80,14 @@ public class DisputaService {
         return DisputaResponse.de(disputa);
     }
 
+    /** La disputa de un pedido, para quien participa en él (comprador o quien gestiona al productor). */
+    @Transactional(readOnly = true)
+    public DisputaResponse dePedido(Jwt jwt, Long pedidoId) {
+        Disputa disputa = disputas.findByPedidoId(pedidoId)
+                .orElseThrow(() -> new NoEncontradoException("Disputa del pedido", pedidoId));
+        return detalle(jwt, disputa.getId());
+    }
+
     @Transactional(readOnly = true)
     public List<DisputaResponse> listar(Jwt jwt, EstadoDisputa estado) {
         usuarioActual.exigirRol(jwt, Rol.ADMINISTRADOR);
