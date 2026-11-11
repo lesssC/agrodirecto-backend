@@ -14,6 +14,9 @@ public interface ProductorRepository extends JpaRepository<Productor, Long> {
 
     boolean existsByDni(String dni);
 
+    /** Puede haber varios: una familia o una asociación que comparten un celular. */
+    List<Productor> findByTelefono(String telefono);
+
     boolean existsByUsuarioId(Long usuarioId);
 
     Optional<Productor> findByUsuarioId(Long usuarioId);

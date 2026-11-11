@@ -48,6 +48,8 @@ public class SeguridadConfig {
                 .authorizeHttpRequests(reglas -> reglas
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/registro", "/api/auth/login").permitAll()
+                        // Webhook del proveedor de SMS: se protege con un secreto compartido, no con JWT.
+                        .requestMatchers(HttpMethod.POST, "/api/sms/entrante").permitAll()
                         // Catálogo y directorio de productores son públicos (cualquier visitante puede explorar).
                         .requestMatchers(HttpMethod.GET, "/api/productos/**", "/api/categorias/**",
                                 "/api/productores/**", "/api/precios-referencia/**", "/api/asociaciones/**",

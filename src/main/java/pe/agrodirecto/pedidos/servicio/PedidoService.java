@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +32,7 @@ import pe.agrodirecto.pedidos.dominio.CanalOperacion;
 import pe.agrodirecto.pedidos.dominio.DetallePedido;
 import pe.agrodirecto.pedidos.dominio.EstadoPedido;
 import pe.agrodirecto.pedidos.dominio.Pedido;
+import pe.agrodirecto.pedidos.dominio.PedidoCambioEstado;
 import pe.agrodirecto.pedidos.repositorio.PedidoRepository;
 import pe.agrodirecto.pedidos.servicio.CalculadoraPedido.Linea;
 import pe.agrodirecto.pedidos.servicio.CalculadoraPedido.Resultado;
@@ -63,6 +65,7 @@ public class PedidoService {
     private final ProductorService productorService;
     private final PagoService pagoService;
     private final AgroDirectoProperties propiedades;
+    private final ApplicationEventPublisher eventos;
     private final Clock reloj;
 
     // ---------- Comprador ----------
@@ -116,6 +119,8 @@ public class PedidoService {
         pedidos.saveAndFlush(pedido);
         pedido.asignarCodigo();
         Pago pago = pagoService.crearPendiente(pedido.getId(), pedido.getTotal());
+        eventos.publishEvent(new PedidoCambioEstado(pedido.getId(), pedido.getCodigo(), null,
+                EstadoPedido.PENDIENTE_PAGO, CanalOperacion.WEB));
         return mapper.aRespuesta(pedido, pago, Vista.COMPRADOR);
     }
 
@@ -131,7 +136,7 @@ public class PedidoService {
             throw new ReglaNegocioException("RN-C1", "El pedido " + pedido.getCodigo() + " ya no espera pago.");
         }
         Pago pago = pagoService.retener(id, solicitud.metodo(), solicitud.numeroOperacion());
-        pedido.cambiarEstado(EstadoPedido.PENDIENTE, comprador, CanalOperacion.WEB,
+        transicion(pedido, EstadoPedido.PENDIENTE, comprador, CanalOperacion.WEB,
                 "Pago retenido vía " + solicitud.metodo(), LocalDateTime.now(reloj));
         return mapper.aRespuesta(pedido, pago, Vista.COMPRADOR);
     }
@@ -155,7 +160,7 @@ public class PedidoService {
             throw new ReglaNegocioException("RN-05",
                     "El agricultor ya aceptó el pedido; para cualquier problema usa el reclamo tras la entrega.");
         }
-        pedido.cambiarEstado(EstadoPedido.CANCELADO, comprador, CanalOperacion.WEB, motivo, LocalDateTime.now(reloj));
+        transicion(pedido, EstadoPedido.CANCELADO, comprador, CanalOperacion.WEB, motivo, LocalDateTime.now(reloj));
         reponerStock(pedido);
         return mapper.aRespuesta(pedido, pagoService.revertir(id), Vista.COMPRADOR);
     }
@@ -164,7 +169,7 @@ public class PedidoService {
     public PedidoResponse confirmarRecepcion(Jwt jwt, Long id) {
         Usuario comprador = usuarioActual.exigirRol(jwt, Rol.COMPRADOR);
         Pedido pedido = delComprador(comprador, id);
-        pedido.cambiarEstado(EstadoPedido.COMPLETADO, comprador, CanalOperacion.WEB, "Recepción conforme",
+        transicion(pedido, EstadoPedido.COMPLETADO, comprador, CanalOperacion.WEB, "Recepción conforme",
                 LocalDateTime.now(reloj));
         return mapper.aRespuesta(pedido, liberarPago(pedido), Vista.COMPRADOR);
     }
@@ -186,7 +191,7 @@ public class PedidoService {
     public PedidoResponse aceptar(Jwt jwt, Long id) {
         Usuario actual = usuarioActual.obtener(jwt);
         Pedido pedido = gestionable(actual, id);
-        pedido.cambiarEstado(EstadoPedido.ACEPTADO, actual, CanalOperacion.WEB, null, LocalDateTime.now(reloj));
+        transicion(pedido, EstadoPedido.ACEPTADO, actual, CanalOperacion.WEB, null, LocalDateTime.now(reloj));
         return mapper.aRespuesta(pedido, pagoService.buscar(id), Vista.GESTOR);
     }
 
@@ -194,7 +199,7 @@ public class PedidoService {
     public PedidoResponse rechazar(Jwt jwt, Long id, String motivo) {
         Usuario actual = usuarioActual.obtener(jwt);
         Pedido pedido = gestionable(actual, id);
-        pedido.cambiarEstado(EstadoPedido.RECHAZADO, actual, CanalOperacion.WEB, motivo, LocalDateTime.now(reloj));
+        transicion(pedido, EstadoPedido.RECHAZADO, actual, CanalOperacion.WEB, motivo, LocalDateTime.now(reloj));
         reponerStock(pedido);
         return mapper.aRespuesta(pedido, pagoService.revertir(id), Vista.GESTOR);
     }
@@ -208,7 +213,7 @@ public class PedidoService {
         }
         Usuario actual = usuarioActual.obtener(jwt);
         Pedido pedido = gestionable(actual, id);
-        pedido.cambiarEstado(estado, actual, CanalOperacion.WEB, comentario, LocalDateTime.now(reloj));
+        transicion(pedido, estado, actual, CanalOperacion.WEB, comentario, LocalDateTime.now(reloj));
         return mapper.aRespuesta(pedido, pagoService.buscar(id), Vista.GESTOR);
     }
 
@@ -227,6 +232,23 @@ public class PedidoService {
         throw new AccesoDenegadoException("Este pedido no es tuyo.");
     }
 
+    // ---------- Respuesta del agricultor por SMS (RN-B2) ----------
+
+    /** El agricultor sin smartphone acepta respondiendo "1" a su SMS. No hay usuario: queda el canal SMS. */
+    @Transactional
+    public void aceptarPorSms(Long id) {
+        Pedido pedido = buscar(id);
+        transicion(pedido, EstadoPedido.ACEPTADO, null, CanalOperacion.SMS, "Aceptado por SMS", LocalDateTime.now(reloj));
+    }
+
+    @Transactional
+    public void rechazarPorSms(Long id) {
+        Pedido pedido = buscar(id);
+        transicion(pedido, EstadoPedido.RECHAZADO, null, CanalOperacion.SMS, "Rechazado por SMS", LocalDateTime.now(reloj));
+        reponerStock(pedido);
+        pagoService.revertir(id);
+    }
+
     // ---------- Procesos automáticos ----------
 
     /**
@@ -239,7 +261,7 @@ public class PedidoService {
         List<Pedido> vencidos = pedidos.findByEstadoAndEntregadoEnBefore(EstadoPedido.ENTREGADO,
                 ahora.minusHours(propiedades.horasLiberacionAutomatica()));
         vencidos.forEach(pedido -> {
-            pedido.cambiarEstado(EstadoPedido.COMPLETADO, null, CanalOperacion.SISTEMA,
+            transicion(pedido, EstadoPedido.COMPLETADO, null, CanalOperacion.SISTEMA,
                     "Liberación automática: sin reclamo en " + propiedades.horasLiberacionAutomatica() + " horas",
                     ahora);
             liberarPago(pedido);
@@ -254,7 +276,7 @@ public class PedidoService {
         List<Pedido> impagos = pedidos.findByEstadoAndCreadoEnBefore(EstadoPedido.PENDIENTE_PAGO,
                 ahora.minusMinutes(propiedades.minutosParaPagar()));
         impagos.forEach(pedido -> {
-            pedido.cambiarEstado(EstadoPedido.CANCELADO, null, CanalOperacion.SISTEMA,
+            transicion(pedido, EstadoPedido.CANCELADO, null, CanalOperacion.SISTEMA,
                     "Cancelado por falta de pago", ahora);
             reponerStock(pedido);
             pagoService.revertir(pedido.getId());
@@ -374,6 +396,14 @@ public class PedidoService {
     }
 
     // ---------- Apoyo ----------
+
+    /** Aplica la transición en el dominio y avisa al resto del sistema. */
+    private void transicion(Pedido pedido, EstadoPedido nuevo, Usuario usuario, CanalOperacion canal,
+            String comentario, LocalDateTime ahora) {
+        EstadoPedido anterior = pedido.getEstado();
+        pedido.cambiarEstado(nuevo, usuario, canal, comentario, ahora);
+        eventos.publishEvent(new PedidoCambioEstado(pedido.getId(), pedido.getCodigo(), anterior, nuevo, canal));
+    }
 
     /** El agricultor recibe su precio íntegro más el flete; el servicio queda en la plataforma. */
     private Pago liberarPago(Pedido pedido) {

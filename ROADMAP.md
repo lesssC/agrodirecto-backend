@@ -10,8 +10,8 @@ La columna **Tema** relaciona la tarea con la Unidad 3 del curso.
 | 2 | `feat/productores` | Perfil del productor, registro asistido por agente, verificación presencial, zonas de cobertura | RN-B1, RN-B5, RN-09 | S19–20 CRUD | Completada |
 | 3 | `feat/catalogo` | Categorías, productos y formatos de venta, búsqueda, precios de referencia, alertas de precio bajo, favoritos | RN-02, RN-03, RN-A1, RN-A2, RN-A3 | S19–20 CRUD | Completada |
 | 4 | `feat/pedidos` | Cotización, creación con validaciones, estados, cancelación, historial, datos de contacto protegidos | RN-01, RN-03, RN-09, RN-10, RN-11, RN-18, RN-24, RN-A4, RN-A5 | S19–20 CRUD | Completada |
-| 5 | `feat/pagos-retenidos` | Pago simulado (Yape/Plin), retención, liberación al confirmar y liberación automática | RN-C1, RN-C2 | S19–20 CRUD | Lista |
-| 6 | `feat/notificaciones-sms` | Mensajes al agricultor por WhatsApp (enlace wa.me) y respuesta por SMS (1 = aceptar, 2 = rechazar) | RN-B2 | — | Pendiente |
+| 5 | `feat/pagos-retenidos` | Pago simulado (Yape/Plin), retención, liberación al confirmar y liberación automática | RN-C1, RN-C2 | S19–20 CRUD | Completada |
+| 6 | `feat/notificaciones-sms` | Mensajes al agricultor por WhatsApp (enlace wa.me) y respuesta por SMS (1 = aceptar, 2 = rechazar) | RN-B2 | — | Lista |
 | 7 | `feat/tiempo-real` | WebSockets (STOMP): pedidos nuevos y cambios de estado en vivo | RN-05 | S21–22 WebSockets | Pendiente |
 | 8 | `feat/confianza` | Reseñas verificadas, reputación del productor y disputas | RN-15, RN-20, RN-21, RN-22 | — | Pendiente |
 | 9 | `feat/administracion` | Panel de métricas, verificación y suspensión de cuentas, resolución de disputas | RN-17, RN-23 | S24 Autorización | Pendiente |

@@ -55,6 +55,7 @@ Al arrancar, Flyway crea las tablas (`db/migration`) y carga los datos de demost
 | `DB_URL` | `jdbc:mysql://localhost:3307/agrodirecto?...` |
 | `DB_USER` / `DB_PASSWORD` | `agrodirecto` / `agrodirecto` |
 | `PORT` | `8080` |
+| `SMS_WEBHOOK_SECRET` | Secreto del webhook de SMS (cambiar en producción) |
 | `JWT_SECRET` | Clave de desarrollo (cambiar en producción) |
 
 ## Autenticación
@@ -186,6 +187,46 @@ En el prototipo el cobro es **simulado**. En producción, la confirmación llega
 | RN-18 | Una cuenta sin verificar y sin 3 compras completadas tiene topes: S/ 1500 por pedido y 2 pedidos en curso |
 | RN-24 | El celular y la dirección exacta se revelan solo cuando el agricultor acepta |
 | RN-05 | Solo se permiten las transiciones del diagrama; cada cambio queda en el historial con quién, cuándo y por qué canal |
+
+## Notificaciones: el agricultor no necesita smartphone (RN-B2)
+
+Cuando un pedido se paga, el agricultor recibe un **SMS** que llega a cualquier celular:
+
+```text
+AgroDirecto: nuevo pedido AG-2503 de Restaurante Sabor Andino: 3 x Caja de 20 kg de Tomate italiano.
+Recibiras S/ 181.00 (pago asegurado). Entrega en Lima hasta el 12/11.
+Responde 1 AG-2503 para ACEPTAR o 2 AG-2503 para RECHAZAR.
+```
+
+Y responde desde su celular:
+
+| Responde | Efecto |
+|---|---|
+| `1`, `SI`, `ACEPTO` (con o sin código) | Acepta el pedido. Si tiene varios pendientes, se le pide el código |
+| `2`, `NO`, `RECHAZO` (con o sin código) | Rechaza: el comprador recupera su dinero y el stock vuelve a la venta |
+| Cualquier otra cosa | Recibe un mensaje de ayuda |
+
+Además:
+- Se genera un **enlace de WhatsApp** (`https://wa.me/51...`) listo para que el agente lo reenvíe gratis desde su teléfono.
+- El agricultor con cuenta y el agente que lo gestiona reciben el aviso en la **campana web**.
+- El comprador recibe un aviso en cada cambio de estado de su pedido.
+- Al liberarse el pago, el agricultor recibe un SMS de confirmación con el monto y su medio de cobro.
+
+| Método | Ruta | Acceso | Descripción |
+|---|---|---|---|
+| GET | `/api/notificaciones` | Con sesión | Campana: avisos y cantidad sin leer |
+| POST | `/api/notificaciones/{id}/leida` · `/api/notificaciones/leidas` | Con sesión | Marcar como leídas |
+| GET | `/api/gestion/mensajes?productorId=` | Quien gestiona | SMS y WhatsApp enviados a un agricultor |
+| POST | `/api/sms/entrante` | Webhook (cabecera `X-Webhook-Secreto`) | Respuesta del agricultor por SMS |
+
+**Diseño:** el módulo `pedidos` publica un evento (`PedidoCambioEstado`) en cada cambio de estado y `notificaciones` lo escucha, así `pedidos` no depende de quién avisa ni de cómo. El envío de SMS está detrás de la interfaz `EnvioSms`: hoy es una simulación que escribe en el log, y para producción basta con otra implementación que use un proveedor real.
+
+Para probar la respuesta por SMS sin un proveedor:
+
+```bash
+curl -X POST localhost:8080/api/sms/entrante -H 'X-Webhook-Secreto: cambiar-en-produccion' \
+  -H 'Content-Type: application/json' -d '{"telefono":"900000011","mensaje":"1"}'
+```
 
 ### Cuentas de demostración
 
