@@ -253,6 +253,24 @@ curl -X POST localhost:8080/api/sms/entrante -H 'X-Webhook-Secreto: cambiar-en-p
   - El agricultor se entera por SMS y puede presentar **su descargo con evidencia**, él mismo o a través de su agente.
   - La administración decide con la información de ambas partes. No hay reembolsos automáticos que perjudiquen al agricultor.
 
+## Administración
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/admin/resumen` | Usuarios por rol, verificaciones pendientes, pedidos por estado, dinero y productores con más ventas |
+| GET | `/api/admin/usuarios?rol=&verificado=&estado=` | Listado de cuentas |
+| POST | `/api/admin/usuarios/{id}/verificar` · `/suspender` · `/reactivar` | Requieren `{"motivo": "..."}` |
+| POST | `/api/admin/productores/{id}/suspender` · `/reactivar` | El productor suspendido sale del catálogo y del directorio |
+| POST | `/api/admin/productores/{id}/agente` | Asigna otro agente verificado a un agricultor |
+| POST · PUT | `/api/admin/precios-referencia[/{id}]` | Actualiza los precios de mercado (las alertas se recalculan solas) |
+| GET | `/api/admin/auditoria?objetivo=&objetivoId=` | Registro de todas las acciones de la administración |
+
+- **El indicador clave es `porcentajeAlAgricultor`:** qué parte del dinero transado llegó al agricultor. En el ejemplo de la papa es **95.7%**; el resto es el servicio que paga el comprador.
+- **Verificación (RN-17):** se verifican agentes (para que puedan registrar agricultores) y compradores (para quitarles los topes de cuenta nueva). Los agricultores se verifican en persona desde su perfil.
+- **Sanciones (RN-23):** toda suspensión necesita un motivo y corta el acceso de inmediato, aunque el token siga vigente. Una cuenta de administración no puede suspenderse desde el panel.
+- **Protección del agricultor:** si su agente es sancionado, el agricultor no pierde su vitrina. La administración le asigna otro agente verificado.
+- **Auditoría:** cada verificación, sanción, reasignación o cambio de precio queda registrado con el administrador, la fecha y el motivo. La administración también rinde cuentas.
+
 ## Tiempo real con WebSocket (STOMP)
 
 El frontend abre **una conexión** a `ws(s)://<servidor>/ws` y se suscribe a los canales que necesita. Así ve los cambios al instante, sin recargar ni consultar cada pocos segundos.

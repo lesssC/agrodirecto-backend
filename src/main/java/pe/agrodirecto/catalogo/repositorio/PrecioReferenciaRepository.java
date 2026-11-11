@@ -9,4 +9,6 @@ import pe.agrodirecto.catalogo.dominio.PrecioReferencia;
 public interface PrecioReferenciaRepository extends JpaRepository<PrecioReferencia, Long> {
 
     List<PrecioReferencia> findAllByOrderByNombre();
+
+    boolean existsByClave(String clave);
 }

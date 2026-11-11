@@ -1,0 +1,12 @@
+package pe.agrodirecto.administracion.dominio;
+
+public enum TipoAccion {
+    VERIFICAR_USUARIO,
+    SUSPENDER_USUARIO,
+    REACTIVAR_USUARIO,
+    SUSPENDER_PRODUCTOR,
+    REACTIVAR_PRODUCTOR,
+    REASIGNAR_AGENTE,
+    CREAR_PRECIO_REFERENCIA,
+    ACTUALIZAR_PRECIO_REFERENCIA
+}
