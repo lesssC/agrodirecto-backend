@@ -78,6 +78,25 @@ curl localhost:8080/api/auth/yo -H 'Authorization: Bearer <token>'
 - No se permiten dos cuentas con el mismo correo, celular o DNI (RN-23), y nadie puede registrarse como administrador (RN-07).
 - En producción hay que definir la variable `JWT_SECRET`, de al menos 32 caracteres.
 
+## Productores
+
+| Método | Ruta | Acceso | Descripción |
+|---|---|---|---|
+| GET | `/api/productores?region=&atiende=` | Público | Directorio de agricultores. `atiende` filtra por la región a la que entregan |
+| GET | `/api/productores/{id}` | Público | Perfil público: historia, zona aproximada y zonas de cobertura |
+| GET | `/api/regiones`, `/api/asociaciones` | Público | Catálogos para los formularios |
+| GET | `/api/gestion/productores` | Productor, agente, admin | Perfiles que el usuario administra |
+| POST | `/api/gestion/productores/mi-perfil` | Productor | El agricultor con smartphone crea su perfil |
+| POST | `/api/gestion/productores/asistidos` | Agente verificado | Registro de un agricultor sin computadora (RN-B1) |
+| PUT | `/api/gestion/productores/{id}` | Quien lo gestiona | Actualiza el perfil |
+| POST | `/api/gestion/productores/{id}/verificar` | Su agente o admin | Verificación presencial del DNI (RN-B5) |
+| PUT | `/api/gestion/productores/{id}/zonas` | Quien lo gestiona | Regiones que abastece, con días de tránsito, pedido mínimo y flete (RN-09) |
+
+- El perfil público no muestra DNI, celular ni datos de cobro (RN-24), y la ubicación se redondea a unos 1 km (RN-06).
+- El medio de cobro se valida según su tipo: Yape o Plin (celular), Cuenta DNI del Banco de la Nación (DNI) o cuenta bancaria (CCI) (RN-C2).
+- Si cambia el DNI de un perfil, su verificación se anula.
+- Un agricultor sin RUC puede facturar a través de su cooperativa (`emiteFactura`, RN-C3).
+
 ### Cuentas de demostración
 
 Contraseña de todas: `demo1234`.

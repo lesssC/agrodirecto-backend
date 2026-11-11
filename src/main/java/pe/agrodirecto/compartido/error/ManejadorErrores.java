@@ -9,6 +9,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
@@ -44,6 +45,13 @@ public class ManejadorErrores {
         List<String> detalles = e.getBindingResult().getFieldErrors().stream()
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .toList();
+        return responder(HttpStatus.BAD_REQUEST, null, "Los datos enviados no son válidos.", detalles);
+    }
+
+    /** Validación de elementos dentro de listas, p. ej. {@code List<@Valid ZonaRequest>}. */
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    ResponseEntity<ErrorRespuesta> validacionMetodo(HandlerMethodValidationException e) {
+        List<String> detalles = e.getAllErrors().stream().map(error -> error.getDefaultMessage()).toList();
         return responder(HttpStatus.BAD_REQUEST, null, "Los datos enviados no son válidos.", detalles);
     }
 

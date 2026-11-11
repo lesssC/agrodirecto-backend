@@ -50,7 +50,8 @@ public class SeguridadConfig {
                         .requestMatchers(HttpMethod.POST, "/api/auth/registro", "/api/auth/login").permitAll()
                         // Catálogo y directorio de productores son públicos (cualquier visitante puede explorar).
                         .requestMatchers(HttpMethod.GET, "/api/productos/**", "/api/categorias/**",
-                                "/api/productores/**", "/api/precios-referencia/**").permitAll()
+                                "/api/productores/**", "/api/precios-referencia/**", "/api/asociaciones/**",
+                                "/api/regiones").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMINISTRADOR")
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())

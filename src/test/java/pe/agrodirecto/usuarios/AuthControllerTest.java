@@ -6,34 +6,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.transaction.annotation.Transactional;
 
-import com.jayway.jsonpath.JsonPath;
+import pe.agrodirecto.PruebaIntegracion;
 
-import jakarta.persistence.EntityManager;
-
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-@Transactional
-class AuthControllerTest {
-
-    @Autowired
-    MockMvc mvc;
-
-    @Autowired
-    JdbcTemplate jdbc;
-
-    @Autowired
-    EntityManager entityManager;
+class AuthControllerTest extends PruebaIntegracion {
 
     @Test
     void registraUnCompradorEIniciaSesion() throws Exception {
@@ -154,8 +132,6 @@ class AuthControllerTest {
     }
 
     private String login(String email, String password) throws Exception {
-        String cuerpo = intentarLogin(email, password).andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return JsonPath.read(cuerpo, "$.token");
+        return token(email, password);
     }
 }
