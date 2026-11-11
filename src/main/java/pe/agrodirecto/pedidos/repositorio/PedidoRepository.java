@@ -1,5 +1,6 @@
 package pe.agrodirecto.pedidos.repositorio;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -17,4 +18,10 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
     long countByCompradorIdAndEstado(Long compradorId, EstadoPedido estado);
 
     long countByCompradorIdAndEstadoIn(Long compradorId, Collection<EstadoPedido> estados);
+
+    /** Entregados hace tiempo sin confirmación ni reclamo: su pago se libera solo (RN-C2). */
+    List<Pedido> findByEstadoAndEntregadoEnBefore(EstadoPedido estado, LocalDateTime limite);
+
+    /** Registrados que nunca se pagaron: se cancelan para liberar el stock. */
+    List<Pedido> findByEstadoAndCreadoEnBefore(EstadoPedido estado, LocalDateTime limite);
 }

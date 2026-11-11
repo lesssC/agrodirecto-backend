@@ -8,7 +8,9 @@ import java.util.Set;
  * Ciclo de vida del pedido (RN-05). Cada estado declara a cuáles puede pasar; cualquier otro salto se rechaza.
  */
 public enum EstadoPedido {
-    /** Registrado; espera que el agricultor lo acepte o rechace. */
+    /** Registrado con el stock reservado; espera el pago del comprador. El agricultor aún no lo ve. */
+    PENDIENTE_PAGO,
+    /** Pagado (dinero retenido); espera que el agricultor lo acepte o rechace. */
     PENDIENTE,
     ACEPTADO,
     EN_PREPARACION,
@@ -21,6 +23,7 @@ public enum EstadoPedido {
     CANCELADO;
 
     private static final Map<EstadoPedido, Set<EstadoPedido>> TRANSICIONES = Map.of(
+            PENDIENTE_PAGO, EnumSet.of(PENDIENTE, CANCELADO),
             PENDIENTE, EnumSet.of(ACEPTADO, RECHAZADO, CANCELADO),
             ACEPTADO, EnumSet.of(EN_PREPARACION),
             EN_PREPARACION, EnumSet.of(LISTO_PARA_ENTREGA),
@@ -33,7 +36,7 @@ public enum EstadoPedido {
 
     /** Pedido en curso: cuenta para el límite de pedidos abiertos de una cuenta nueva (RN-18). */
     public boolean esAbierto() {
-        return EnumSet.of(PENDIENTE, ACEPTADO, EN_PREPARACION, LISTO_PARA_ENTREGA, ENTREGADO).contains(this);
+        return abiertos().contains(this);
     }
 
     /**
@@ -45,6 +48,6 @@ public enum EstadoPedido {
     }
 
     public static Set<EstadoPedido> abiertos() {
-        return EnumSet.of(PENDIENTE, ACEPTADO, EN_PREPARACION, LISTO_PARA_ENTREGA, ENTREGADO);
+        return EnumSet.of(PENDIENTE_PAGO, PENDIENTE, ACEPTADO, EN_PREPARACION, LISTO_PARA_ENTREGA, ENTREGADO);
     }
 }

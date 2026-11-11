@@ -140,8 +140,10 @@ class PedidoControllerTest extends PruebaIntegracion {
         postCon(token(COMPRADOR), "/api/pedidos", pedido("Lima", "ENTREGA_DEL_PRODUCTOR", item(saco, 2)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.codigo", matchesPattern("AG-25\\d\\d")))
-                .andExpect(jsonPath("$.estado").value("PENDIENTE"))
-                .andExpect(jsonPath("$.acciones[0]").value("CANCELAR"))
+                .andExpect(jsonPath("$.estado").value("PENDIENTE_PAGO"))
+                .andExpect(jsonPath("$.acciones[0]").value("PAGAR"))
+                .andExpect(jsonPath("$.acciones[1]").value("CANCELAR"))
+                .andExpect(jsonPath("$.pago.estado").value("PENDIENTE"))
                 .andExpect(jsonPath("$.historial.length()").value(1));
         assertThat(stock(saco)).isEqualTo(16);
     }
@@ -162,9 +164,9 @@ class PedidoControllerTest extends PruebaIntegracion {
         postCon(comprador, "/api/pedidos/" + id + "/confirmar-recepcion", null)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("COMPLETADO"))
-                .andExpect(jsonPath("$.historial.length()").value(6))
-                .andExpect(jsonPath("$.historial[1].usuario").value("Juan Huamán Rojas"))
-                .andExpect(jsonPath("$.historial[5].estadoNuevo").value("COMPLETADO"));
+                .andExpect(jsonPath("$.historial.length()").value(7))
+                .andExpect(jsonPath("$.historial[2].usuario").value("Juan Huamán Rojas"))
+                .andExpect(jsonPath("$.historial[6].estadoNuevo").value("COMPLETADO"));
     }
 
     @Test
@@ -210,7 +212,7 @@ class PedidoControllerTest extends PruebaIntegracion {
 
         postCon(token(PRODUCTOR), "/api/gestion/pedidos/" + rechazado + "/rechazar", "{\"motivo\":\"Helada en la zona\"}")
                 .andExpect(jsonPath("$.estado").value("RECHAZADO"))
-                .andExpect(jsonPath("$.historial[1].comentario").value("Helada en la zona"));
+                .andExpect(jsonPath("$.historial[2].comentario").value("Helada en la zona"));
         postCon(comprador, "/api/pedidos/" + cancelado + "/cancelar", null)
                 .andExpect(jsonPath("$.estado").value("CANCELADO"));
         assertThat(stock(saco)).isEqualTo(18);
@@ -244,17 +246,20 @@ class PedidoControllerTest extends PruebaIntegracion {
                 item(formato("Tomate italiano", "Caja de 20 kg"), 3)));
         postCon(token(AGENTE), "/api/gestion/pedidos/" + id + "/aceptar", null)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.historial[1].usuario").value("Rosa Quispe Mamani"));
+                .andExpect(jsonPath("$.historial[2].usuario").value("Rosa Quispe Mamani"));
         getCon(token(COMPRADOR), "/api/pedidos?estado=ACEPTADO").andExpect(jsonPath("$.length()").value(1));
     }
 
     // ---------- Apoyo ----------
 
+    /** Registra el pedido y lo paga, que es el flujo normal antes de que el agricultor lo atienda. */
     private Long crear(String token, String json) throws Exception {
         String cuerpo = postCon(token, "/api/pedidos", json).andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
+        Long id = ((Number) JsonPath.read(cuerpo, "$.id")).longValue();
+        postCon(token, "/api/pedidos/" + id + "/pago", "{\"metodo\":\"YAPE\"}").andExpect(status().isOk());
         nuevaPeticion();
-        return ((Number) JsonPath.read(cuerpo, "$.id")).longValue();
+        return id;
     }
 
     private ResultActions avanzar(String token, Long id, String estado) throws Exception {

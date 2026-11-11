@@ -122,26 +122,47 @@ curl localhost:8080/api/auth/yo -H 'Authorization: Bearer <token>'
 | Método | Ruta | Acceso | Descripción |
 |---|---|---|---|
 | POST | `/api/pedidos/cotizacion` | Comprador | Vista previa con el desglose y todas las validaciones; no reserva stock |
-| POST | `/api/pedidos` | Comprador | Registra el pedido y reserva el stock |
+| POST | `/api/pedidos` | Comprador | Registra el pedido (`PENDIENTE_PAGO`) y reserva el stock |
+| POST | `/api/pedidos/{id}/pago` | Comprador | Pago simulado (`YAPE`, `PLIN`, `TARJETA`, `TRANSFERENCIA`): el dinero queda retenido |
 | GET | `/api/pedidos?estado=` | Comprador | Mis pedidos |
 | GET | `/api/pedidos/{id}` | Comprador o quien gestiona al productor | Detalle con historial y acciones disponibles |
-| POST | `/api/pedidos/{id}/cancelar` | Comprador | Solo mientras está `PENDIENTE` |
-| POST | `/api/pedidos/{id}/confirmar-recepcion` | Comprador | `ENTREGADO` → `COMPLETADO` |
+| POST | `/api/pedidos/{id}/cancelar` | Comprador | Solo antes de que el agricultor acepte; si ya pagó, se le devuelve |
+| POST | `/api/pedidos/{id}/confirmar-recepcion` | Comprador | `ENTREGADO` → `COMPLETADO` y se libera el pago al agricultor |
 | GET | `/api/gestion/pedidos?productorId=&estado=` | Productor, agente, admin | Pedidos recibidos |
 | POST | `/api/gestion/pedidos/{id}/aceptar` · `/rechazar` | Quien gestiona | Responder al pedido |
 | POST | `/api/gestion/pedidos/{id}/estado` | Quien gestiona | `EN_PREPARACION`, `LISTO_PARA_ENTREGA` o `ENTREGADO` |
 
 ```mermaid
 stateDiagram-v2
-    [*] --> PENDIENTE: comprador registra
+    [*] --> PENDIENTE_PAGO: comprador registra (reserva stock)
+    PENDIENTE_PAGO --> PENDIENTE: comprador paga (dinero retenido)
+    PENDIENTE_PAGO --> CANCELADO: cancela o no paga en 60 min
     PENDIENTE --> ACEPTADO: agricultor acepta
-    PENDIENTE --> RECHAZADO: agricultor rechaza (repone stock)
-    PENDIENTE --> CANCELADO: comprador cancela (repone stock)
+    PENDIENTE --> RECHAZADO: agricultor rechaza (se devuelve el dinero)
+    PENDIENTE --> CANCELADO: comprador cancela (se devuelve el dinero)
     ACEPTADO --> EN_PREPARACION
     EN_PREPARACION --> LISTO_PARA_ENTREGA
     LISTO_PARA_ENTREGA --> ENTREGADO
-    ENTREGADO --> COMPLETADO: comprador confirma
+    ENTREGADO --> COMPLETADO: comprador confirma o pasan 48 h (se libera el pago)
 ```
+
+### Pago retenido (RN-C1, RN-C2)
+
+El comprador **paga primero** y AgroDirecto **retiene el dinero** hasta la entrega:
+
+| Estado del pago | Cuándo | Efecto |
+|---|---|---|
+| `PENDIENTE` | Pedido registrado | El agricultor **todavía no ve** el pedido: no prepara nada que nadie pagará |
+| `RETENIDO` | El comprador pagó | El pedido llega al agricultor con la garantía de que el dinero existe |
+| `LIBERADO` | El comprador confirma la recepción, o pasan 48 h sin reclamo | El agricultor recibe su monto en el Yape, Plin, Cuenta DNI o cuenta que registró |
+| `DEVUELTO` | El agricultor rechaza o el comprador cancela antes de la aceptación | El comprador recupera su dinero |
+| `ANULADO` | Se cancela antes de pagar | No hubo cobro |
+
+Cada 10 minutos, un proceso automático:
+- libera los pagos de pedidos entregados hace más de 48 horas sin reclamo, para que nadie retenga indefinidamente el dinero de quien ya entregó;
+- cancela los pedidos que no se pagaron en 60 minutos, para que nadie bloquee stock sin intención de comprar.
+
+En el prototipo el cobro es **simulado**. En producción, la confirmación llegaría de una pasarela (Culqi, Mercado Pago o Niubiz) mediante un webhook firmado.
 
 **Cómo se calcula** (siempre en el servidor; el comprador nunca envía precios, RN-A1):
 

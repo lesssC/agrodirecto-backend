@@ -16,6 +16,8 @@ public record AgroDirectoProperties(
         int horasReclamo,
         /* RN-C2: horas tras la entrega para liberar el pago si el comprador no confirma ni reclama. */
         int horasLiberacionAutomatica,
+        /* Minutos para pagar un pedido registrado; luego se cancela y el stock vuelve a la venta. */
+        int minutosParaPagar,
         /* RN-A3: porcentaje por debajo del precio mayorista que dispara la alerta al agricultor. */
         BigDecimal alertaPrecioBajoPorcentaje,
         CuentaNueva cuentaNueva,

@@ -24,6 +24,9 @@ import pe.agrodirecto.compartido.error.AccesoDenegadoException;
 import pe.agrodirecto.compartido.error.NoEncontradoException;
 import pe.agrodirecto.compartido.error.ReglaNegocioException;
 import pe.agrodirecto.config.AgroDirectoProperties;
+import pe.agrodirecto.pagos.dominio.Pago;
+import pe.agrodirecto.pagos.servicio.PagoService;
+import pe.agrodirecto.pagos.web.PagoRequest;
 import pe.agrodirecto.pedidos.dominio.CanalOperacion;
 import pe.agrodirecto.pedidos.dominio.DetallePedido;
 import pe.agrodirecto.pedidos.dominio.EstadoPedido;
@@ -58,6 +61,7 @@ public class PedidoService {
     private final PedidoMapper mapper;
     private final UsuarioActualService usuarioActual;
     private final ProductorService productorService;
+    private final PagoService pagoService;
     private final AgroDirectoProperties propiedades;
     private final Clock reloj;
 
@@ -108,32 +112,52 @@ public class PedidoService {
             detalle.setSubtotal(linea.neto());
             pedido.agregarDetalle(detalle);
         }
-        pedido.registrar(EstadoPedido.PENDIENTE, comprador, CanalOperacion.WEB, ahora);
+        pedido.registrar(EstadoPedido.PENDIENTE_PAGO, comprador, CanalOperacion.WEB, ahora);
         pedidos.saveAndFlush(pedido);
         pedido.asignarCodigo();
-        return mapper.aRespuesta(pedido, Vista.COMPRADOR);
+        Pago pago = pagoService.crearPendiente(pedido.getId(), pedido.getTotal());
+        return mapper.aRespuesta(pedido, pago, Vista.COMPRADOR);
+    }
+
+    /**
+     * RN-C1: el comprador paga primero y la plataforma retiene el dinero. Recién entonces el pedido
+     * llega al agricultor, que así nunca prepara un pedido que nadie pagará.
+     */
+    @Transactional
+    public PedidoResponse pagar(Jwt jwt, Long id, PagoRequest solicitud) {
+        Usuario comprador = usuarioActual.exigirRol(jwt, Rol.COMPRADOR);
+        Pedido pedido = delComprador(comprador, id);
+        if (pedido.getEstado() != EstadoPedido.PENDIENTE_PAGO) {
+            throw new ReglaNegocioException("RN-C1", "El pedido " + pedido.getCodigo() + " ya no espera pago.");
+        }
+        Pago pago = pagoService.retener(id, solicitud.metodo(), solicitud.numeroOperacion());
+        pedido.cambiarEstado(EstadoPedido.PENDIENTE, comprador, CanalOperacion.WEB,
+                "Pago retenido vía " + solicitud.metodo(), LocalDateTime.now(reloj));
+        return mapper.aRespuesta(pedido, pago, Vista.COMPRADOR);
     }
 
     @Transactional(readOnly = true)
     public List<PedidoResponse> misPedidos(Jwt jwt, EstadoPedido estado) {
         Usuario comprador = usuarioActual.exigirRol(jwt, Rol.COMPRADOR);
-        return pedidos.findByCompradorIdOrderByCreadoEnDesc(comprador.getId()).stream()
-                .filter(p -> estado == null || p.getEstado() == estado)
-                .map(p -> mapper.aRespuesta(p, Vista.COMPRADOR)).toList();
+        return responder(pedidos.findByCompradorIdOrderByCreadoEnDesc(comprador.getId()).stream()
+                .filter(p -> estado == null || p.getEstado() == estado).toList(), Vista.COMPRADOR);
     }
 
-    /** Solo antes de que el agricultor acepte: después ya pudo haber cosechado (protege al agricultor). */
+    /**
+     * Solo antes de que el agricultor acepte: después ya pudo haber cosechado (protege al agricultor).
+     * Si ya pagó, se le devuelve el dinero.
+     */
     @Transactional
     public PedidoResponse cancelar(Jwt jwt, Long id, String motivo) {
         Usuario comprador = usuarioActual.exigirRol(jwt, Rol.COMPRADOR);
         Pedido pedido = delComprador(comprador, id);
-        if (pedido.getEstado() != EstadoPedido.PENDIENTE) {
+        if (pedido.getEstado() != EstadoPedido.PENDIENTE_PAGO && pedido.getEstado() != EstadoPedido.PENDIENTE) {
             throw new ReglaNegocioException("RN-05",
                     "El agricultor ya aceptó el pedido; para cualquier problema usa el reclamo tras la entrega.");
         }
         pedido.cambiarEstado(EstadoPedido.CANCELADO, comprador, CanalOperacion.WEB, motivo, LocalDateTime.now(reloj));
         reponerStock(pedido);
-        return mapper.aRespuesta(pedido, Vista.COMPRADOR);
+        return mapper.aRespuesta(pedido, pagoService.revertir(id), Vista.COMPRADOR);
     }
 
     @Transactional
@@ -142,7 +166,7 @@ public class PedidoService {
         Pedido pedido = delComprador(comprador, id);
         pedido.cambiarEstado(EstadoPedido.COMPLETADO, comprador, CanalOperacion.WEB, "Recepción conforme",
                 LocalDateTime.now(reloj));
-        return mapper.aRespuesta(pedido, Vista.COMPRADOR);
+        return mapper.aRespuesta(pedido, liberarPago(pedido), Vista.COMPRADOR);
     }
 
     // ---------- Productor, agente o administración ----------
@@ -152,9 +176,10 @@ public class PedidoService {
         List<Long> ids = productorId != null
                 ? List.of(productorService.buscarGestionable(jwt, productorId).getId())
                 : productorService.gestionados(jwt).stream().map(ProductorGestionResponse::id).toList();
-        return pedidos.findByProductorIdInOrderByCreadoEnDesc(ids).stream()
-                .filter(p -> estado == null || p.getEstado() == estado)
-                .map(p -> mapper.aRespuesta(p, Vista.GESTOR)).toList();
+        // Los pedidos sin pagar no se muestran al agricultor: podrían no concretarse nunca.
+        return responder(pedidos.findByProductorIdInOrderByCreadoEnDesc(ids).stream()
+                .filter(p -> p.getEstado() != EstadoPedido.PENDIENTE_PAGO)
+                .filter(p -> estado == null || p.getEstado() == estado).toList(), Vista.GESTOR);
     }
 
     @Transactional
@@ -162,7 +187,7 @@ public class PedidoService {
         Usuario actual = usuarioActual.obtener(jwt);
         Pedido pedido = gestionable(actual, id);
         pedido.cambiarEstado(EstadoPedido.ACEPTADO, actual, CanalOperacion.WEB, null, LocalDateTime.now(reloj));
-        return mapper.aRespuesta(pedido, Vista.GESTOR);
+        return mapper.aRespuesta(pedido, pagoService.buscar(id), Vista.GESTOR);
     }
 
     @Transactional
@@ -171,7 +196,7 @@ public class PedidoService {
         Pedido pedido = gestionable(actual, id);
         pedido.cambiarEstado(EstadoPedido.RECHAZADO, actual, CanalOperacion.WEB, motivo, LocalDateTime.now(reloj));
         reponerStock(pedido);
-        return mapper.aRespuesta(pedido, Vista.GESTOR);
+        return mapper.aRespuesta(pedido, pagoService.revertir(id), Vista.GESTOR);
     }
 
     /** Avances del agricultor tras aceptar: en preparación, listo y entregado. */
@@ -184,7 +209,7 @@ public class PedidoService {
         Usuario actual = usuarioActual.obtener(jwt);
         Pedido pedido = gestionable(actual, id);
         pedido.cambiarEstado(estado, actual, CanalOperacion.WEB, comentario, LocalDateTime.now(reloj));
-        return mapper.aRespuesta(pedido, Vista.GESTOR);
+        return mapper.aRespuesta(pedido, pagoService.buscar(id), Vista.GESTOR);
     }
 
     // ---------- Ambos ----------
@@ -194,12 +219,47 @@ public class PedidoService {
         Usuario actual = usuarioActual.obtener(jwt);
         Pedido pedido = buscar(id);
         if (pedido.esDelComprador(actual)) {
-            return mapper.aRespuesta(pedido, Vista.COMPRADOR);
+            return mapper.aRespuesta(pedido, pagoService.buscar(id), Vista.COMPRADOR);
         }
         if (pedido.getProductor().esGestionadoPor(actual)) {
-            return mapper.aRespuesta(pedido, Vista.GESTOR);
+            return mapper.aRespuesta(pedido, pagoService.buscar(id), Vista.GESTOR);
         }
         throw new AccesoDenegadoException("Este pedido no es tuyo.");
+    }
+
+    // ---------- Procesos automáticos ----------
+
+    /**
+     * RN-C2: si el comprador no confirma ni reclama dentro del plazo, el pago se libera al agricultor.
+     * Evita que un comprador retenga indefinidamente el dinero de alguien que ya entregó.
+     */
+    @Transactional
+    public int liberarPagosVencidos() {
+        LocalDateTime ahora = LocalDateTime.now(reloj);
+        List<Pedido> vencidos = pedidos.findByEstadoAndEntregadoEnBefore(EstadoPedido.ENTREGADO,
+                ahora.minusHours(propiedades.horasLiberacionAutomatica()));
+        vencidos.forEach(pedido -> {
+            pedido.cambiarEstado(EstadoPedido.COMPLETADO, null, CanalOperacion.SISTEMA,
+                    "Liberación automática: sin reclamo en " + propiedades.horasLiberacionAutomatica() + " horas",
+                    ahora);
+            liberarPago(pedido);
+        });
+        return vencidos.size();
+    }
+
+    /** Pedidos que nunca se pagaron: se cancelan y su stock vuelve a la venta. */
+    @Transactional
+    public int expirarPedidosImpagos() {
+        LocalDateTime ahora = LocalDateTime.now(reloj);
+        List<Pedido> impagos = pedidos.findByEstadoAndCreadoEnBefore(EstadoPedido.PENDIENTE_PAGO,
+                ahora.minusMinutes(propiedades.minutosParaPagar()));
+        impagos.forEach(pedido -> {
+            pedido.cambiarEstado(EstadoPedido.CANCELADO, null, CanalOperacion.SISTEMA,
+                    "Cancelado por falta de pago", ahora);
+            reponerStock(pedido);
+            pagoService.revertir(pedido.getId());
+        });
+        return impagos.size();
     }
 
     // ---------- Reglas de armado del pedido ----------
@@ -314,6 +374,18 @@ public class PedidoService {
     }
 
     // ---------- Apoyo ----------
+
+    /** El agricultor recibe su precio íntegro más el flete; el servicio queda en la plataforma. */
+    private Pago liberarPago(Pedido pedido) {
+        Productor productor = pedido.getProductor();
+        return pagoService.liberar(pedido.getId(), new Pago.Liquidacion(pedido.getMontoProductor(),
+                pedido.getComision(), productor.getMetodoCobro().name(), productor.getNumeroCobro()));
+    }
+
+    private List<PedidoResponse> responder(List<Pedido> lista, Vista vista) {
+        Map<Long, Pago> pagos = pagoService.porPedido(lista.stream().map(Pedido::getId).toList());
+        return lista.stream().map(p -> mapper.aRespuesta(p, pagos.get(p.getId()), vista)).toList();
+    }
 
     private void reponerStock(Pedido pedido) {
         pedido.getDetalles().forEach(d -> d.getFormato().reponer(d.getCantidad()));

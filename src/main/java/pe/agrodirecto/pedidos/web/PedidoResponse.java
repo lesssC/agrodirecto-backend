@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import pe.agrodirecto.pagos.web.PagoResponse;
 import pe.agrodirecto.pedidos.dominio.CanalOperacion;
 import pe.agrodirecto.pedidos.dominio.EstadoPedido;
 import pe.agrodirecto.pedidos.dominio.ModalidadEntrega;
@@ -16,7 +17,7 @@ public record PedidoResponse(Long id, String codigo, EstadoPedido estado, LocalD
         LocalDateTime actualizadoEn, LocalDate fechaEntregaEstimada, ModalidadEntrega modalidadEntrega,
         String regionDestino, String direccionEntrega, String nota, ProductorPedido productor,
         CompradorPedido comprador, List<LineaPedidoResponse> lineas, DesgloseResponse desglose,
-        List<HistorialResponse> historial, List<String> acciones) {
+        List<HistorialResponse> historial, PagoResponse pago, List<String> acciones) {
 
     public record ProductorPedido(Long id, String nombreComercial, String region, boolean emiteFactura,
             String nombreTitular, String telefono) {

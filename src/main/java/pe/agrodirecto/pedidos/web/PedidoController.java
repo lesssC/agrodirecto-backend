@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import pe.agrodirecto.pagos.web.PagoRequest;
 import pe.agrodirecto.pedidos.dominio.EstadoPedido;
 import pe.agrodirecto.pedidos.servicio.PedidoService;
 
@@ -47,6 +48,13 @@ public class PedidoController {
     @GetMapping("/{id}")
     public PedidoResponse detalle(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         return servicio.detalle(jwt, id);
+    }
+
+    /** Pago simulado: el dinero queda retenido y el pedido pasa al agricultor (RN-C1). */
+    @PostMapping("/{id}/pago")
+    public PedidoResponse pagar(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id,
+            @Valid @RequestBody PagoRequest solicitud) {
+        return servicio.pagar(jwt, id, solicitud);
     }
 
     @PostMapping("/{id}/cancelar")
