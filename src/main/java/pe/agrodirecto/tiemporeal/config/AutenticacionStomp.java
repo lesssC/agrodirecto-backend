@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import lombok.RequiredArgsConstructor;
 import pe.agrodirecto.config.SeguridadConfig;
 import pe.agrodirecto.tiemporeal.servicio.PermisosTiempoReal;
+import pe.agrodirecto.usuarios.servicio.UsuarioActualService;
 
 /**
  * Seguridad de los mensajes STOMP.
@@ -32,6 +33,7 @@ public class AutenticacionStomp implements ChannelInterceptor {
 
     private final JwtDecoder jwtDecoder;
     private final PermisosTiempoReal permisos;
+    private final UsuarioActualService usuarioActual;
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -59,13 +61,20 @@ public class AutenticacionStomp implements ChannelInterceptor {
         }
         try {
             Jwt jwt = jwtDecoder.decode(cabecera.substring(7));
-            if (!permisos.cuentaActiva(Long.valueOf(jwt.getSubject()))) {
-                throw new MessageDeliveryException("La cuenta no está activa.");
-            }
+            validarCuenta(jwt);
             // El nombre del usuario en STOMP es su id: así se le envían mensajes privados.
             stomp.setUser(SeguridadConfig.convertidorRoles().convert(jwt));
         } catch (JwtException e) {
             throw new MessageDeliveryException("Token inválido o expirado.");
+        }
+    }
+
+    /** Mismas reglas que la API REST: cuenta activa y segundo factor cuando corresponde. */
+    private void validarCuenta(Jwt jwt) {
+        try {
+            usuarioActual.obtener(jwt);
+        } catch (RuntimeException e) {
+            throw new MessageDeliveryException(e.getMessage());
         }
     }
 

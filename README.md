@@ -58,6 +58,8 @@ Al arrancar, Flyway crea las tablas (`db/migration`) y carga los datos de demost
 | `PORT` | `8080` |
 | `SMS_WEBHOOK_SECRET` | Secreto del webhook de SMS (cambiar en producción) |
 | `JWT_SECRET` | Clave de desarrollo (cambiar en producción) |
+| `TOTP_CLAVE` | Clave que cifra los secretos del segundo factor (cambiar en producción) |
+| `DOBLE_FACTOR_DEMO` | `true`: activa el segundo factor de las cuentas demo con secretos conocidos (usar `false` en producción) |
 
 ## Autenticación
 
@@ -309,17 +311,59 @@ cliente.activate();
 
 **Diseño:** el módulo escucha el mismo evento `PedidoCambioEstado` que las notificaciones, sin tocar `pedidos`. Usa el broker simple en memoria de Spring, suficiente para una instancia del backend. Para varias instancias se cambiaría por un broker externo (RabbitMQ) sin modificar los canales.
 
+## Verificación en dos pasos (TOTP)
+
+Algo que sabes (la contraseña) más algo que tienes (el celular con una app de autenticación). Es **obligatoria para administradores y agentes**, que verifican agricultores, resuelven disputas y mueven pedidos, y **opcional** para los demás. No tiene costo: los códigos se generan en el celular, sin SMS ni servicios externos.
+
+```mermaid
+sequenceDiagram
+    participant U as Usuario
+    participant API as AgroDirecto
+    U->>API: POST /api/auth/login (correo + contraseña)
+    API-->>U: requiereSegundoFactor: true + tokenTemporal (5 min, no sirve para la API)
+    U->>U: abre Google Authenticator → código de 6 dígitos
+    U->>API: POST /api/auth/2fa/verificar (tokenTemporal + código)
+    API-->>U: token de acceso (amr: pwd + otp)
+```
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/auth/2fa` | Estado: activo, obligatorio y códigos de respaldo disponibles |
+| POST | `/api/auth/2fa/configurar` | Genera el secreto y la URI `otpauth://` para mostrar el código QR |
+| POST | `/api/auth/2fa/activar` | `{"codigo"}`: confirma la app, entrega 8 códigos de respaldo y un token nuevo |
+| POST | `/api/auth/2fa/verificar` | `{"tokenTemporal","codigo"}`: segundo paso del login (acepta también un código de respaldo) |
+| POST | `/api/auth/2fa/desactivar` | `{"codigo"}`: solo para roles en los que es opcional |
+
+**Seguridad aplicada:**
+- **TOTP propio** según el RFC 6238 (HMAC-SHA1, 30 s, 6 dígitos), verificado con los vectores de prueba oficiales del RFC y compatible con Google Authenticator, Microsoft Authenticator y Authy.
+- **El secreto se guarda cifrado** con AES-256-GCM, usando una clave que vive fuera de la base de datos (`TOTP_CLAVE`).
+- **El token temporal no abre la API:** el validador de JWT rechaza los tokens con `etapa = SEGUNDO_FACTOR`.
+- **Un código no se puede reutilizar:** se recuerda el último intervalo usado (protección contra repetición).
+- **Los códigos incorrectos cuentan para el bloqueo de la cuenta.** Volver a ingresar la contraseña no reinicia el contador, así que no se puede adivinar el código por fuerza bruta.
+- **Códigos de respaldo:** 8 códigos de un solo uso para cuando se pierde el celular. Solo se guarda su hash SHA-256.
+- **Al activar el segundo factor, los tokens anteriores dejan de servir:** se exige el claim `amr` con `otp`.
+- **Las reglas también aplican a WebSocket:** un agente sin segundo factor no puede conectarse.
+
+**Cuentas demo:** para la presentación, el segundo factor de las cuentas de administración y del agente se activa con secretos conocidos. Agrégalos en Google Authenticator con "Ingresar clave de configuración":
+
+| Cuenta | Clave (Base32) |
+|---|---|
+| `admin@agrodirecto.pe` | `AGRODIRECTOADMINDEMO234567ABCDEF` |
+| `promotora@agrodirecto.pe` | `AGRODIRECTOAGENTEDEMO234567ABCDE` |
+
+En el frontend, el código QR se genera a partir de la `uri`, por ejemplo con la librería `qrcode`.
+
 ### Cuentas de demostración
 
 Contraseña de todas: `demo1234`.
 
 | Correo | Rol |
 |---|---|
-| `admin@agrodirecto.pe` | Administrador |
+| `admin@agrodirecto.pe` | Administrador (con segundo factor) |
 | `compras@saborandino.pe` | Comprador verificado (empresa con RUC) |
 | `donlucho@correo.pe` | Comprador nuevo (sujeto a límites de cuenta nueva) |
 | `andesverde@agrodirecto.pe` | Productor con cuenta propia |
-| `promotora@agrodirecto.pe` | Agente de campo que gestiona a cinco agricultores sin computadora |
+| `promotora@agrodirecto.pe` | Agente de campo que gestiona a cinco agricultores sin computadora (con segundo factor) |
 
 ## Pruebas
 

@@ -90,10 +90,16 @@ public class AuthService {
         if (!usuario.estaActivo()) {
             throw new AccesoDenegadoException("RN-23", "Tu cuenta está suspendida. Comunícate con AgroDirecto.");
         }
+        if (usuario.isTotpActivo()) {
+            // La contraseña es correcta, pero falta el código. Los intentos fallidos no se reinician aquí:
+            // así no se puede adivinar el código volviendo a ingresar la contraseña una y otra vez.
+            TokenEmitido temporal = tokenService.emitirTemporal(usuario);
+            return SesionResponse.pendienteDeCodigo(temporal.token(), temporal.expiraEn());
+        }
 
         usuario.registrarAccesoExitoso(ahora);
-        TokenEmitido token = tokenService.emitir(usuario);
-        return new SesionResponse(token.token(), token.expiraEn(), UsuarioResponse.de(usuario));
+        TokenEmitido token = tokenService.emitir(usuario, false);
+        return SesionResponse.completa(token.token(), token.expiraEn(), UsuarioResponse.de(usuario));
     }
 
     private LocalDateTime ahora() {

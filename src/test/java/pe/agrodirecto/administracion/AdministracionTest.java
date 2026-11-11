@@ -153,7 +153,7 @@ class AdministracionTest extends PruebaIntegracion {
                 .andExpect(jsonPath("$.agente").value("Nuevo Promotor"));
         nuevaPeticion();
 
-        getCon(token("nuevo@agente.pe", "segura123"), "/api/gestion/productores")
+        getCon(activarDobleFactor("nuevo@agente.pe", "segura123"), "/api/gestion/productores")
                 .andExpect(jsonPath("$[0].nombreComercial").value("ValleFresco"));
         getCon(token(AGENTE), "/api/gestion/productores")
                 .andExpect(jsonPath("$[*].nombreComercial", not(hasItem("ValleFresco"))));

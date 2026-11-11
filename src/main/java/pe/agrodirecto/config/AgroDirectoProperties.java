@@ -34,7 +34,14 @@ public record AgroDirectoProperties(
      * @param horasToken      vigencia del token de acceso
      * @param intentosMaximos intentos fallidos antes del bloqueo temporal
      * @param minutosBloqueo  duración del bloqueo
+     * @param claveCifrado    clave para cifrar los secretos TOTP
      */
-    public record Seguridad(String jwtSecreto, int horasToken, int intentosMaximos, int minutosBloqueo) {
+    public record Seguridad(String jwtSecreto, int horasToken, int intentosMaximos, int minutosBloqueo,
+            /* Clave para cifrar los secretos TOTP en la base de datos (AES-256-GCM). */
+            String claveCifrado,
+            /* Roles obligados a usar el segundo factor. */
+            java.util.Set<pe.agrodirecto.usuarios.dominio.Rol> rolesConDobleFactor,
+            /* Configura secretos TOTP conocidos en las cuentas demo. Desactivar en producción. */
+            boolean dobleFactorDemo) {
     }
 }

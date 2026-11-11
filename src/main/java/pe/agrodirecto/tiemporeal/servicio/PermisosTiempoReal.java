@@ -23,9 +23,4 @@ public class PermisosTiempoReal {
                 .map(productor -> productor.esGestionadoPor(usuario))
                 .orElse(false);
     }
-
-    @Transactional(readOnly = true)
-    public boolean cuentaActiva(Long usuarioId) {
-        return usuarios.findById(usuarioId).map(Usuario::estaActivo).orElse(false);
-    }
 }

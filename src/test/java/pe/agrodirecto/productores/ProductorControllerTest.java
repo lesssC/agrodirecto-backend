@@ -78,7 +78,7 @@ class ProductorControllerTest extends PruebaIntegracion {
                 {"nombre":"Promotor Nuevo","email":"nuevo@agente.pe","password":"segura123",
                  "telefono":"955555555","dni":"45555555","rol":"AGENTE"}""").andExpect(status().isCreated());
 
-        postCon(token("nuevo@agente.pe", "segura123"), "/api/gestion/productores/asistidos", AGRICULTOR_NUEVO)
+        postCon(activarDobleFactor("nuevo@agente.pe", "segura123"), "/api/gestion/productores/asistidos", AGRICULTOR_NUEVO)
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.regla").value("RN-17"));
     }

@@ -3,6 +3,7 @@ package pe.agrodirecto.tiemporeal;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.lang.reflect.Type;
+import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
@@ -28,6 +29,9 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
 import com.jayway.jsonpath.JsonPath;
+
+import pe.agrodirecto.usuarios.seguridad.Totp;
+import pe.agrodirecto.usuarios.servicio.DobleFactorDemo;
 
 /**
  * Prueba de punta a punta con un servidor real: clientes STOMP conectados mientras otro usuario opera por REST.
@@ -168,6 +172,13 @@ class TiempoRealTest {
     private String token(String email) {
         String cuerpo = api.post().uri("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                 .body("{\"email\":\"" + email + "\",\"password\":\"demo1234\"}").retrieve().body(String.class);
+        if (Boolean.TRUE.equals(JsonPath.read(cuerpo, "$.requiereSegundoFactor"))) {
+            String codigo = Totp.codigoActual(DobleFactorDemo.SECRETOS.get(email), Instant.now());
+            cuerpo = api.post().uri("/api/auth/2fa/verificar").contentType(MediaType.APPLICATION_JSON)
+                    .body("{\"tokenTemporal\":\"" + JsonPath.read(cuerpo, "$.tokenTemporal") + "\",\"codigo\":\""
+                            + codigo + "\"}")
+                    .retrieve().body(String.class);
+        }
         return JsonPath.read(cuerpo, "$.token");
     }
 

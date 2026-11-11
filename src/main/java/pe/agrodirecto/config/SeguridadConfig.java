@@ -14,9 +14,15 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -38,6 +44,9 @@ import com.nimbusds.jose.jwk.source.ImmutableSecret;
 public class SeguridadConfig {
 
     public static final String CLAIM_ROL = "rol";
+    /** Presente solo en el token temporal de la verificación en dos pasos. */
+    public static final String CLAIM_ETAPA = "etapa";
+    public static final String ETAPA_SEGUNDO_FACTOR = "SEGUNDO_FACTOR";
 
     @Bean
     SecurityFilterChain filtroSeguridad(HttpSecurity http) throws Exception {
@@ -47,7 +56,8 @@ public class SeguridadConfig {
                 .sessionManagement(sesion -> sesion.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(reglas -> reglas
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/registro", "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/registro", "/api/auth/login",
+                                "/api/auth/2fa/verificar").permitAll()
                         // Webhook del proveedor de SMS: se protege con un secreto compartido, no con JWT.
                         .requestMatchers(HttpMethod.POST, "/api/sms/entrante").permitAll()
                         // Catálogo y directorio de productores son públicos (cualquier visitante puede explorar).
@@ -74,13 +84,28 @@ public class SeguridadConfig {
     }
 
     @Bean
-    JwtEncoder jwtEncoder(AgroDirectoProperties propiedades) {
-        return new NimbusJwtEncoder(new ImmutableSecret<>(clave(propiedades)));
+    SecretKey claveJwt(AgroDirectoProperties propiedades) {
+        return clave(propiedades);
     }
 
     @Bean
-    JwtDecoder jwtDecoder(AgroDirectoProperties propiedades) {
-        return NimbusJwtDecoder.withSecretKey(clave(propiedades)).macAlgorithm(MacAlgorithm.HS256).build();
+    JwtEncoder jwtEncoder(SecretKey claveJwt) {
+        return new NimbusJwtEncoder(new ImmutableSecret<>(claveJwt));
+    }
+
+    /**
+     * Valida firma y vigencia, y además rechaza el token temporal de la verificación en dos pasos:
+     * quien solo sabe la contraseña no puede usar la API.
+     */
+    @Bean
+    JwtDecoder jwtDecoder(SecretKey claveJwt) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(claveJwt).macAlgorithm(MacAlgorithm.HS256).build();
+        OAuth2TokenValidator<Jwt> sinEtapaPendiente = jwt -> jwt.hasClaim(CLAIM_ETAPA)
+                ? OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token",
+                        "Completa la verificación en dos pasos.", null))
+                : OAuth2TokenValidatorResult.success();
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefault(), sinEtapaPendiente));
+        return decoder;
     }
 
     @Bean

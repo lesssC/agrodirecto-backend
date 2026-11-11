@@ -40,6 +40,6 @@ public class AuthController {
 
     @GetMapping("/yo")
     public UsuarioResponse yo(@AuthenticationPrincipal Jwt jwt) {
-        return UsuarioResponse.de(usuarioActual.obtener(jwt));
+        return UsuarioResponse.de(usuarioActual.obtenerSinSegundoFactor(jwt));
     }
 }

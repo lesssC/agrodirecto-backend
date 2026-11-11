@@ -71,6 +71,17 @@ public class Usuario {
     @Column(name = "creado_en", nullable = false)
     private LocalDateTime creadoEn;
 
+    /** Secreto TOTP cifrado. Puede existir sin estar activo mientras el usuario termina de configurarlo. */
+    @Column(name = "totp_secreto", length = 255)
+    private String totpSecreto;
+
+    @Column(name = "totp_activo", nullable = false)
+    private boolean totpActivo;
+
+    /** Último intervalo de 30 s aceptado: un código ya usado no vale dos veces. */
+    @Column(name = "totp_ultimo_paso")
+    private Long totpUltimoPaso;
+
     public boolean estaActivo() {
         return estado == EstadoCuenta.ACTIVO;
     }

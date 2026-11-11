@@ -34,10 +34,18 @@ class AuthControllerTest extends PruebaIntegracion {
     @Test
     void lasCuentasDemoInicianSesionConSuRol() throws Exception {
         mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"promotora@agrodirecto.pe\",\"password\":\"demo1234\"}"))
+                        .content("{\"email\":\"andesverde@agrodirecto.pe\",\"password\":\"demo1234\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tipo").value("Bearer"))
-                .andExpect(jsonPath("$.usuario.rol").value("AGENTE"));
+                .andExpect(jsonPath("$.requiereSegundoFactor").value(false))
+                .andExpect(jsonPath("$.usuario.rol").value("PRODUCTOR"));
+        // Los agentes usan verificación en dos pasos: la contraseña sola no entrega el token.
+        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"promotora@agrodirecto.pe\",\"password\":\"demo1234\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requiereSegundoFactor").value(true))
+                .andExpect(jsonPath("$.token").doesNotExist())
+                .andExpect(jsonPath("$.tokenTemporal").exists());
     }
 
     @Test

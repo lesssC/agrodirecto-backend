@@ -15,9 +15,15 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+
 import com.jayway.jsonpath.JsonPath;
 
 import jakarta.persistence.EntityManager;
+import pe.agrodirecto.usuarios.seguridad.Totp;
+import pe.agrodirecto.usuarios.servicio.DobleFactorDemo;
 
 /**
  * Base de las pruebas de la API: levanta la aplicación con H2 y los datos demo.
@@ -45,16 +51,64 @@ public abstract class PruebaIntegracion {
     @Autowired
     protected EntityManager entityManager;
 
+    /** Secretos TOTP conocidos en esta prueba: los de las cuentas demo y los que la prueba active. */
+    protected final Map<String, String> secretosTotp = new HashMap<>(DobleFactorDemo.SECRETOS);
+
+    /**
+     * Un código TOTP solo vale una vez, así que cada cuenta inicia sesión una sola vez por prueba
+     * y el token se reutiliza.
+     */
+    private final Map<String, String> tokens = new HashMap<>();
+
     protected String token(String email) throws Exception {
         return token(email, CLAVE_DEMO);
     }
 
+    /** Inicia sesión; si la cuenta tiene segundo factor, genera el código como lo haría la app del celular. */
     protected String token(String email, String password) throws Exception {
+        String cacheado = tokens.get(email);
+        if (cacheado != null) {
+            return cacheado;
+        }
         String cuerpo = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        return JsonPath.read(cuerpo, "$.token");
+        String token;
+        if (Boolean.TRUE.equals(JsonPath.read(cuerpo, "$.requiereSegundoFactor"))) {
+            String temporal = JsonPath.read(cuerpo, "$.tokenTemporal");
+            String codigo = Totp.codigoActual(secretosTotp.get(email), Instant.now());
+            String verificado = mvc.perform(post("/api/auth/2fa/verificar").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"tokenTemporal\":\"" + temporal + "\",\"codigo\":\"" + codigo + "\"}"))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString();
+            token = JsonPath.read(verificado, "$.token");
+        } else {
+            token = JsonPath.read(cuerpo, "$.token");
+        }
+        tokens.put(email, token);
+        return token;
+    }
+
+    /**
+     * Activa el segundo factor de una cuenta recién creada (agentes y administradores lo necesitan)
+     * y devuelve su token con el segundo factor ya verificado.
+     */
+    protected String activarDobleFactor(String email, String password) throws Exception {
+        String cuerpo = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + email + "\",\"password\":\"" + password + "\"}"))
+                .andReturn().getResponse().getContentAsString();
+        String inicial = JsonPath.read(cuerpo, "$.token");
+        String configuracion = postCon(inicial, "/api/auth/2fa/configurar", null).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String secreto = JsonPath.read(configuracion, "$.secreto");
+        secretosTotp.put(email, secreto);
+        String activacion = postCon(inicial, "/api/auth/2fa/activar",
+                "{\"codigo\":\"" + Totp.codigoActual(secreto, Instant.now()) + "\"}")
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String token = JsonPath.read(activacion, "$.sesion.token");
+        tokens.put(email, token);
+        return token;
     }
 
     protected ResultActions getCon(String token, String url) throws Exception {
