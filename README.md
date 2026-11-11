@@ -73,7 +73,22 @@ Al arrancar, Flyway crea las tablas (`db/migration`) y carga los datos de demost
 | `SMS_WEBHOOK_SECRET` | Secreto del webhook de SMS (cambiar en producción) |
 | `JWT_SECRET` | Clave de desarrollo (cambiar en producción) |
 | `TOTP_CLAVE` | Clave que cifra los secretos del segundo factor (cambiar en producción) |
+| `ORIGENES_PERMITIDOS` | `http://localhost:3000,https://*.workers.dev` (dominios del frontend para CORS y WebSocket) |
+| `SWAGGER` | `true`: publica la documentación en `/swagger-ui.html` |
 | `DOBLE_FACTOR_DEMO` | `true`: activa el segundo factor de las cuentas demo con secretos conocidos (usar `false` en producción) |
+
+## Documentación de la API (Swagger)
+
+Con la API levantada, abrir **http://localhost:8080/swagger-ui.html**. Lista todas las rutas con sus datos de entrada y salida, y permite probarlas:
+
+1. Ejecutar `POST /api/auth/login` con una cuenta demo y copiar el `token` de la respuesta.
+2. Pulsar **Authorize**, pegar el token y probar cualquier ruta protegida.
+
+La especificación OpenAPI en JSON está en `/v3/api-docs`.
+
+## Despliegue
+
+Base de datos en Aiven y API en Render, ambos con plan gratuito: ver [docs/despliegue.md](docs/despliegue.md). El archivo `render.yaml` crea el servicio con un clic.
 
 ## Autenticación
 

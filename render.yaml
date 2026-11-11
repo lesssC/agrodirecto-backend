@@ -1,0 +1,28 @@
+# Blueprint de Render: crea el servicio web de la API desde el Dockerfile.
+# La base de datos MySQL vive en Aiven (plan gratuito); sus datos se cargan como variables secretas.
+services:
+  - type: web
+    name: agrodirecto-api
+    runtime: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DB_URL
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: ORIGENES_PERMITIDOS
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: TOTP_CLAVE
+        generateValue: true
+      - key: SMS_WEBHOOK_SECRET
+        generateValue: true
+      - key: DOBLE_FACTOR_DEMO
+        value: "true"
+      - key: JAVA_OPTS
+        value: "-XX:MaxRAMPercentage=70 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k -XX:+ExitOnOutOfMemoryError"
