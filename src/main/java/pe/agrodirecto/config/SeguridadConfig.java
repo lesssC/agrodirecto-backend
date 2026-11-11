@@ -69,6 +69,8 @@ public class SeguridadConfig {
                         .requestMatchers("/ws", "/ws/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/error").permitAll()
+                        // Documentación de la API (Swagger UI y especificación OpenAPI).
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(servidor -> servidor
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(convertidorRoles()))
