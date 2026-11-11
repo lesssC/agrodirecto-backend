@@ -117,6 +117,55 @@ curl localhost:8080/api/auth/yo -H 'Authorization: Bearer <token>'
 - **Solo agricultores verificados publican (RN-B5):** sin la verificación presencial se pueden guardar borradores, pero no publicar.
 - **Stock con bloqueo optimista:** si dos compradores reservan el mismo stock a la vez, solo uno lo consigue.
 
+## Pedidos
+
+| Método | Ruta | Acceso | Descripción |
+|---|---|---|---|
+| POST | `/api/pedidos/cotizacion` | Comprador | Vista previa con el desglose y todas las validaciones; no reserva stock |
+| POST | `/api/pedidos` | Comprador | Registra el pedido y reserva el stock |
+| GET | `/api/pedidos?estado=` | Comprador | Mis pedidos |
+| GET | `/api/pedidos/{id}` | Comprador o quien gestiona al productor | Detalle con historial y acciones disponibles |
+| POST | `/api/pedidos/{id}/cancelar` | Comprador | Solo mientras está `PENDIENTE` |
+| POST | `/api/pedidos/{id}/confirmar-recepcion` | Comprador | `ENTREGADO` → `COMPLETADO` |
+| GET | `/api/gestion/pedidos?productorId=&estado=` | Productor, agente, admin | Pedidos recibidos |
+| POST | `/api/gestion/pedidos/{id}/aceptar` · `/rechazar` | Quien gestiona | Responder al pedido |
+| POST | `/api/gestion/pedidos/{id}/estado` | Quien gestiona | `EN_PREPARACION`, `LISTO_PARA_ENTREGA` o `ENTREGADO` |
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDIENTE: comprador registra
+    PENDIENTE --> ACEPTADO: agricultor acepta
+    PENDIENTE --> RECHAZADO: agricultor rechaza (repone stock)
+    PENDIENTE --> CANCELADO: comprador cancela (repone stock)
+    ACEPTADO --> EN_PREPARACION
+    EN_PREPARACION --> LISTO_PARA_ENTREGA
+    LISTO_PARA_ENTREGA --> ENTREGADO
+    ENTREGADO --> COMPLETADO: comprador confirma
+```
+
+**Cómo se calcula** (siempre en el servidor; el comprador nunca envía precios, RN-A1):
+
+| Concepto | Fórmula | Ejemplo: 2 sacos + 1 arroba de papa a Lima |
+|---|---|---|
+| Neto del agricultor | Σ precio × cantidad − descuento por volumen | S/ 268.00 |
+| Flete | Según la zona de cobertura | S/ 25.00 |
+| Servicio AgroDirecto (5%) | Neto × 5%, **lo paga el comprador** (RN-A4) | S/ 13.40 |
+| **Total que paga el comprador** | Neto + flete + servicio | **S/ 306.40** |
+| **Recibe el agricultor** | Neto + flete, íntegro | **S/ 293.00** |
+
+**Validaciones al registrar el pedido:**
+
+| Regla | Qué valida |
+|---|---|
+| RN-01 | Todos los productos son del mismo productor |
+| RN-03 | El producto está publicado y hay stock suficiente |
+| RN-09 | El productor entrega en la región de destino (no aplica al recojo en chacra) |
+| RN-10 | La vida útil del producto supera los días de viaje: no se vende lo que llegaría malogrado |
+| RN-11 | Se alcanza el pedido mínimo de la zona |
+| RN-18 | Una cuenta sin verificar y sin 3 compras completadas tiene topes: S/ 1500 por pedido y 2 pedidos en curso |
+| RN-24 | El celular y la dirección exacta se revelan solo cuando el agricultor acepta |
+| RN-05 | Solo se permiten las transiciones del diagrama; cada cambio queda en el historial con quién, cuándo y por qué canal |
+
 ### Cuentas de demostración
 
 Contraseña de todas: `demo1234`.
