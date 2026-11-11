@@ -55,6 +55,8 @@ public class SeguridadConfig {
                                 "/api/productores/**", "/api/precios-referencia/**", "/api/asociaciones/**",
                                 "/api/regiones").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMINISTRADOR")
+                        // El handshake de WebSocket es libre: el JWT se valida en el CONNECT de STOMP.
+                        .requestMatchers("/ws", "/ws/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(servidor -> servidor
@@ -92,7 +94,8 @@ public class SeguridadConfig {
         return fuente;
     }
 
-    private JwtAuthenticationConverter convertidorRoles() {
+    /** También lo usa la autenticación de WebSocket para convertir el JWT en usuario con roles. */
+    public static JwtAuthenticationConverter convertidorRoles() {
         JwtGrantedAuthoritiesConverter roles = new JwtGrantedAuthoritiesConverter();
         roles.setAuthoritiesClaimName(CLAIM_ROL);
         roles.setAuthorityPrefix("ROLE_");

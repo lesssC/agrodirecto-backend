@@ -7,7 +7,7 @@ El plan de trabajo por tareas está en [ROADMAP.md](ROADMAP.md).
 
 ## Tecnologías
 
-- Java 21 y Spring Boot 4.1 (Web MVC, Data JPA, Validation, Security).
+- Java 21 y Spring Boot 4.1 (Web MVC, Data JPA, Validation, Security, WebSocket).
 - JWT firmado con HS256 (Spring Security OAuth2 Resource Server).
 - MySQL 8 y Flyway para versionar el esquema.
 - H2 en modo MySQL solo para las pruebas automáticas.
@@ -27,6 +27,7 @@ pe.agrodirecto
 ├── pedidos/         Cotización, pedidos, estados e historial
 ├── pagos/           Pago retenido y liberación al agricultor
 ├── notificaciones/  WhatsApp/SMS al agricultor y avisos web
+├── tiemporeal/      WebSocket (STOMP): pedidos y stock en vivo
 ├── confianza/       Reseñas, reputación y disputas
 └── administracion/  Métricas y control de la plataforma
 
@@ -227,6 +228,44 @@ Para probar la respuesta por SMS sin un proveedor:
 curl -X POST localhost:8080/api/sms/entrante -H 'X-Webhook-Secreto: cambiar-en-produccion' \
   -H 'Content-Type: application/json' -d '{"telefono":"900000011","mensaje":"1"}'
 ```
+
+## Tiempo real con WebSocket (STOMP)
+
+El frontend abre **una conexión** a `ws(s)://<servidor>/ws` y se suscribe a los canales que necesita. Así ve los cambios al instante, sin recargar ni consultar cada pocos segundos.
+
+| Canal | Quién puede suscribirse | Qué recibe |
+|---|---|---|
+| `/user/queue/pedidos` | Cualquier usuario con sesión | Cambios de estado de **sus** pedidos (comprador) |
+| `/topic/productores/{id}/pedidos` | Solo quien gestiona a ese productor | Pedidos nuevos y sus cambios (el agricultor no ve los pedidos sin pagar) |
+| `/topic/productos/{id}/stock` | Cualquiera, incluso sin sesión | Stock actualizado de cada presentación del producto |
+
+**Seguridad:**
+- El JWT se envía en el `CONNECT` de STOMP y se valida con la misma clave que la API REST. Una cuenta suspendida no puede conectarse.
+- Cada suscripción revisa los mismos permisos que la API: un comprador o un agente que no gestiona a AndesVerde no puede escuchar sus pedidos.
+- Los clientes solo escuchan; el servidor rechaza los mensajes `SEND`.
+- Solo se aceptan conexiones desde los orígenes permitidos (CORS).
+- Los mensajes se publican **después del commit**, así nunca se anuncia en vivo un cambio que luego se revirtió.
+
+Ejemplo en el frontend con [`@stomp/stompjs`](https://www.npmjs.com/package/@stomp/stompjs):
+
+```ts
+import { Client } from "@stomp/stompjs";
+
+const cliente = new Client({
+  brokerURL: "ws://localhost:8080/ws",
+  connectHeaders: { Authorization: `Bearer ${token}` },
+  onConnect: () => {
+    cliente.subscribe("/user/queue/pedidos", (m) => {
+      const evento = JSON.parse(m.body); // { codigo, anterior, estado, productor, total, ... }
+      mostrarAviso(`Tu pedido ${evento.codigo} ahora está ${evento.estado}`);
+    });
+    cliente.subscribe("/topic/productos/1/stock", (m) => actualizarStock(JSON.parse(m.body)));
+  },
+});
+cliente.activate();
+```
+
+**Diseño:** el módulo escucha el mismo evento `PedidoCambioEstado` que las notificaciones, sin tocar `pedidos`. Usa el broker simple en memoria de Spring, suficiente para una instancia del backend. Para varias instancias se cambiaría por un broker externo (RabbitMQ) sin modificar los canales.
 
 ### Cuentas de demostración
 
