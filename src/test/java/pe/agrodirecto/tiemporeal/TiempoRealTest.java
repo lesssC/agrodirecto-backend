@@ -112,6 +112,7 @@ class TiempoRealTest {
 
         StompSession anonimo = conectar(null);
         anonimo.subscribe("/user/queue/pedidos", new Recolector(new LinkedBlockingQueue<>()));
+        Thread.sleep(300); // el broker procesa la suscripción de forma asíncrona
         assertThat(seDesconecta(anonimo)).isTrue();
         assertThat(errores.poll(5, TimeUnit.SECONDS)).contains("Inicia sesión");
     }

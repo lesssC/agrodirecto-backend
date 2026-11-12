@@ -6,6 +6,8 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDateTime;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -130,6 +132,28 @@ class PagoRetenidoTest extends PruebaIntegracion {
         getCon(token(COMPRADOR), "/api/pedidos/" + id)
                 .andExpect(jsonPath("$.estado").value("CANCELADO"))
                 .andExpect(jsonPath("$.pago.estado").value("ANULADO"));
+    }
+
+    @Test
+    void unPedidoPagadoSinRespuestaDelProductorSeCancelaYDevuelveElDinero() throws Exception {
+        String comprador = token(COMPRADOR);
+        Long id = registrar();
+        pagar(comprador, id, "YAPE").andExpect(status().isOk());
+        nuevaPeticion();
+        jdbc.update("UPDATE pedido SET actualizado_en = ? WHERE id = ?", haceHoras(25), id);
+        entityManager.clear();
+        assertThat(jdbc.queryForObject("SELECT actualizado_en FROM pedido WHERE id = ?", LocalDateTime.class, id))
+                .isBefore(LocalDateTime.now(pe.agrodirecto.config.AplicacionConfig.ZONA_PERU).minusHours(24));
+
+        assertThat(pedidoService.expirarPedidosSinRespuesta()).isEqualTo(1);
+
+        assertThat(stockSaco()).isEqualTo(18);
+        getCon(comprador, "/api/pedidos/" + id)
+                .andExpect(jsonPath("$.estado").value("CANCELADO"))
+                .andExpect(jsonPath("$.pago.estado").value("DEVUELTO"))
+                .andExpect(jsonPath("$.historial[2].canal").value("SISTEMA"))
+                .andExpect(jsonPath("$.historial[2].comentario")
+                        .value("Cancelado por falta de respuesta del productor"));
     }
 
     // ---------- Apoyo ----------

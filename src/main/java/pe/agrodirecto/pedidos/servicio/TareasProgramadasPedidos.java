@@ -17,9 +17,11 @@ public class TareasProgramadasPedidos {
     @Scheduled(fixedDelayString = "PT10M", initialDelayString = "PT1M")
     public void ejecutar() {
         int liberados = pedidoService.liberarPagosVencidos();
+        int sinRespuesta = pedidoService.expirarPedidosSinRespuesta();
         int expirados = pedidoService.expirarPedidosImpagos();
-        if (liberados + expirados > 0) {
-            log.info("Pagos liberados automáticamente: {}. Pedidos impagos cancelados: {}.", liberados, expirados);
+        if (liberados + sinRespuesta + expirados > 0) {
+            log.info("Pagos liberados: {}. Pedidos sin respuesta cancelados: {}. Pedidos impagos cancelados: {}.",
+                    liberados, sinRespuesta, expirados);
         }
     }
 }
