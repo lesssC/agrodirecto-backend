@@ -14,7 +14,8 @@ import pe.agrodirecto.pedidos.dominio.ModalidadEntrega;
  * hasta que el agricultor acepta (RN-24). {@code acciones} indica qué puede hacer quien consulta.
  */
 public record PedidoResponse(Long id, String codigo, EstadoPedido estado, LocalDateTime creadoEn,
-        LocalDateTime actualizadoEn, LocalDate fechaEntregaEstimada, ModalidadEntrega modalidadEntrega,
+        LocalDateTime actualizadoEn, LocalDate fechaEntregaEstimada, LocalDateTime entregadoEn,
+        ModalidadEntrega modalidadEntrega,
         String regionDestino, String direccionEntrega, String nota, ProductorPedido productor,
         CompradorPedido comprador, List<LineaPedidoResponse> lineas, DesgloseResponse desglose,
         List<HistorialResponse> historial, PagoResponse pago, List<String> acciones) {
