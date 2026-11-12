@@ -29,6 +29,9 @@ public interface PedidoRepository extends JpaRepository<Pedido, Long> {
     /** Entregados hace tiempo sin confirmación ni reclamo: su pago se libera solo (RN-C2). */
     List<Pedido> findByEstadoAndEntregadoEnBefore(EstadoPedido estado, LocalDateTime limite);
 
+    /** Pedidos pagados que aún esperan la respuesta del productor. */
+    List<Pedido> findByEstadoAndActualizadoEnBefore(EstadoPedido estado, LocalDateTime limite);
+
     /** Registrados que nunca se pagaron: se cancelan para liberar el stock. */
     List<Pedido> findByEstadoAndCreadoEnBefore(EstadoPedido estado, LocalDateTime limite);
 }

@@ -326,6 +326,21 @@ public class PedidoService {
         return impagos.size();
     }
 
+    /** Pedidos pagados que el productor no aceptó: se cancelan, se devuelve el pago y se libera el stock. */
+    @Transactional
+    public int expirarPedidosSinRespuesta() {
+        LocalDateTime ahora = LocalDateTime.now(reloj);
+        List<Pedido> vencidos = pedidos.findByEstadoAndActualizadoEnBefore(EstadoPedido.PENDIENTE,
+                ahora.minusHours(propiedades.horasParaAceptar()));
+        vencidos.forEach(pedido -> {
+            transicion(pedido, EstadoPedido.CANCELADO, null, CanalOperacion.SISTEMA,
+                    "Cancelado por falta de respuesta del productor", ahora);
+            reponerStock(pedido);
+            pagoService.revertir(pedido.getId());
+        });
+        return vencidos.size();
+    }
+
     // ---------- Reglas de armado del pedido ----------
 
     private record Preparacion(Productor productor, String regionDestino, int diasTransito, LocalDate fechaEntrega,

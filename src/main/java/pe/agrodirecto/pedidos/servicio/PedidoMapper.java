@@ -30,7 +30,7 @@ public class PedidoMapper {
         Productor productor = p.getProductor();
         Usuario comprador = p.getComprador();
         return new PedidoResponse(p.getId(), p.getCodigo(), p.getEstado(), p.getCreadoEn(), p.getActualizadoEn(),
-                p.getFechaEntregaEstimada(), p.getModalidadEntrega(), p.getRegionDestino(),
+                p.getFechaEntregaEstimada(), p.getEntregadoEn(), p.getModalidadEntrega(), p.getRegionDestino(),
                 // El comprador siempre ve su propia dirección; el agricultor, solo tras aceptar (RN-24).
                 vista == Vista.COMPRADOR || contacto ? p.getDireccionEntrega() : null, p.getNota(),
                 new PedidoResponse.ProductorPedido(productor.getId(), productor.getNombreComercial(),

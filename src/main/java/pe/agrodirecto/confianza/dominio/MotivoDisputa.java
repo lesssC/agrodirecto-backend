@@ -5,6 +5,7 @@ public enum MotivoDisputa {
     CALIDAD(true),
     CANTIDAD(true),
     PRODUCTO_DISTINTO(true),
+    DANIO_TRANSPORTE(true),
     OTRO(false);
 
     /** RN-15: los reclamos sobre lo recibido necesitan una foto como evidencia. */
